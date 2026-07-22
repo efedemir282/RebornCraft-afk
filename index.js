@@ -13,29 +13,31 @@ app.listen(PORT, () => {
 });
 
 function botuBaslat() {
+  console.log('Sunucuya bağlanılmaya çalışılıyor...');
+
   const bot = mineflayer.createBot({
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: false
+    version: '1.16.5' // Sürüm sabitlendi
   });
 
   bot.on('spawn', () => {
-    console.log('Bot oyuna girdi!');
+    console.log('Bot başarıyla oyuna girdi!');
 
-    // 1. Oyuna girer girmez (2. saniyede) Şifre Girişi Yapar
+    // 1. Şifre girişi (2. saniye)
     setTimeout(() => {
       bot.chat('/login efe43802');
       console.log('Giriş şifresi gönderildi.');
     }, 2000);
 
-    // 2. Şifre girildikten sonra (5. saniyede) /home Noktasına Işınlanır
+    // 2. Home noktasına ışınlanma (5. saniye)
     setTimeout(() => {
       bot.chat('/home');
       console.log('Home noktasına ışınlanma komutu gönderildi.');
     }, 5000);
 
-    // 3. 40 saniyede bir zıplama hareketi (AFK atılmamak için)
+    // 3. AFK zıplama döngüsü (40 saniyede bir)
     setInterval(() => {
       if (bot) {
         bot.setControlState('jump', true);
@@ -46,13 +48,18 @@ function botuBaslat() {
     }, 40000);
   });
 
-  bot.on('end', () => {
-    console.log('Bağlantı koptu, tekrar deneniyor...');
-    setTimeout(botuBaslat, 10000);
+  bot.on('kicked', (reason) => {
+    console.log('Bot sunucudan atıldı. Sebep:', reason);
+  });
+
+  bot.on('end', (reason) => {
+    console.log('Bağlantı koptu. Detay/Sebep:', reason);
+    console.log('15 saniye sonra tekrar deneniyor...');
+    setTimeout(botuBaslat, 15000);
   });
 
   bot.on('error', (err) => {
-    console.log('Hata oluştu:', err);
+    console.log('Hata oluştu:', err.message);
   });
 }
 
