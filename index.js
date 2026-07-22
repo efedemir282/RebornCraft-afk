@@ -28,34 +28,34 @@ function botuBaslat() {
     version: '1.16.5'
   });
 
-  // SUNUCUDAN GELEN TÜM SOHBET MESAJLARINI KONSOLA YAZDIRIR
+  // Sunucu mesajlarını konsola yazdır
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
   });
 
   bot.once('spawn', () => {
-    console.log('Bot ilk doğuşunu yaptı, işlemler başlatılıyor...');
+    console.log('Bot ilk doğuşunu yaptı, komut akışı başlatılıyor...');
 
-    // 1. Şifre (3. saniye)
+    // 1. ADIM: 4. saniyede Şifre Girer
     setTimeout(() => {
       bot.chat('/login efe43802');
       console.log('>> /login komutu atıldı.');
-    }, 3000);
+    }, 4000);
 
-    // 2. Skyblock (8. saniye)
+    // 2. ADIM: 10. saniyede Skyblock Sunucusuna Geçer
     setTimeout(() => {
       bot.chat('/skyblock');
-      console.log('>> /skyblock komutu atıldı.');
-    }, 8000);
+      console.log('>> /skyblock komutu atıldı (Aktarım bekleniyor...).');
+    }, 10000);
 
-    // 3. Home (15. saniye)
+    // 3. ADIM: 22. saniyede (Skyblock'a geçiş tamamlandıktan sonra) Home noktasına gider
     setTimeout(() => {
       bot.chat('/home');
       console.log('>> /home komutu atıldı.');
-    }, 15000);
+    }, 22000);
 
-    // AFK Zıplama
+    // AFK Zıplama Döngüsü
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     ziplamaInterval = setInterval(() => {
       if (bot && bot.entity) {
