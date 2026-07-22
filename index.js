@@ -13,9 +13,16 @@ app.listen(PORT, () => {
 });
 
 let ziplamaInterval = null;
+let baglantiDenedi = false;
 
 function botuBaslat() {
+  if (baglantiDenedi) {
+    console.log('Zaten aktif bir bağlantı denemesi var, bekleniyor...');
+    return;
+  }
+
   console.log('Sunucuya bağlanılıyor...');
+  baglantiDenedi = true;
 
   const bot = mineflayer.createBot({
     host: 'play.reborncraft.pw',
@@ -24,29 +31,28 @@ function botuBaslat() {
     version: '1.16.5'
   });
 
-  // 'once' kullanarak komut akışının sadece İLK GİRİŞTE 1 kez çalışmasını sağlıyoruz
   bot.once('spawn', () => {
-    console.log('Bot ilk kez doğdu, komut sırası başlatılıyor...');
+    console.log('Bot başarıyla oyuna girdi! Komutlar sırayla gönderiliyor...');
 
-    // 1. ADIM: 3. saniyede Şifre Girer
+    // 1. Şifre (3. saniye)
     setTimeout(() => {
       bot.chat('/login efe43802');
       console.log('1. Şifre gönderildi.');
     }, 3000);
 
-    // 2. ADIM: 8. saniyede Skyblock Sunucusuna Geçer
+    // 2. Skyblock (8. saniye)
     setTimeout(() => {
       bot.chat('/skyblock');
       console.log('2. Skyblock sunucusuna geçiş komutu gönderildi.');
     }, 8000);
 
-    // 3. ADIM: 15. saniyede Home Noktasına Işınlanır
+    // 3. Home (15. saniye)
     setTimeout(() => {
       bot.chat('/home');
       console.log('3. Home noktasına ışınlanma komutu gönderildi.');
     }, 15000);
 
-    // Eski zıplama döngüsü varsa temizle, yenisini başlat
+    // AFK Zıplama Döngüsü
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     ziplamaInterval = setInterval(() => {
       if (bot && bot.entity) {
@@ -63,13 +69,15 @@ function botuBaslat() {
   });
 
   bot.on('end', () => {
-    console.log('Bağlantı koptu, 15 saniye sonra tekrar deneniyor...');
+    console.log('Bağlantı koptu. 30 saniye sonra tekrar denenecek...');
+    baglantiDenedi = false;
     if (ziplamaInterval) clearInterval(ziplamaInterval);
-    setTimeout(botuBaslat, 15000);
+    setTimeout(botuBaslat, 30000); // Süre 30 saniyeye çıkarıldı
   });
 
   bot.on('error', (err) => {
     console.log('Hata oluştu:', err.message);
+    baglantiDenedi = false;
   });
 }
 
