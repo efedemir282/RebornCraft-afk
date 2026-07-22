@@ -23,13 +23,19 @@ function botuBaslat() {
   bot.on('spawn', () => {
     console.log('Bot oyuna girdi!');
 
-    // Oyuna girdikten 3 saniye sonra /home yazıp ayarladığın konuma ışınlanır
+    // 1. Oyuna girer girmez (2. saniyede) Şifre Girişi Yapar
+    setTimeout(() => {
+      bot.chat('/login efe43802');
+      console.log('Giriş şifresi gönderildi.');
+    }, 2000);
+
+    // 2. Şifre girildikten sonra (5. saniyede) /home Noktasına Işınlanır
     setTimeout(() => {
       bot.chat('/home');
       console.log('Home noktasına ışınlanma komutu gönderildi.');
-    }, 3000);
+    }, 5000);
 
-    // 40 saniyede bir zıplama hareketi (AFK atılmamak için)
+    // 3. 40 saniyede bir zıplama hareketi (AFK atılmamak için)
     setInterval(() => {
       if (bot) {
         bot.setControlState('jump', true);
