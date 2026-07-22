@@ -12,6 +12,8 @@ app.listen(PORT, () => {
   console.log('Web sunucusu hazır.');
 });
 
+let ziplamaInterval = null;
+
 function botuBaslat() {
   console.log('Sunucuya bağlanılıyor...');
 
@@ -22,8 +24,9 @@ function botuBaslat() {
     version: '1.16.5'
   });
 
-  bot.on('spawn', () => {
-    console.log('Bot lobide doğdu!');
+  // 'once' kullanarak komut akışının sadece İLK GİRİŞTE 1 kez çalışmasını sağlıyoruz
+  bot.once('spawn', () => {
+    console.log('Bot ilk kez doğdu, komut sırası başlatılıyor...');
 
     // 1. ADIM: 3. saniyede Şifre Girer
     setTimeout(() => {
@@ -31,21 +34,22 @@ function botuBaslat() {
       console.log('1. Şifre gönderildi.');
     }, 3000);
 
-    // 2. ADIM: 7. saniyede Oyun Sunucusuna (Skyblock) Bağlanır
+    // 2. ADIM: 8. saniyede Skyblock Sunucusuna Geçer
     setTimeout(() => {
-      bot.chat('/skyblock'); // Sunucudaki mod ismi farklıysa (örn: /ada veya /is) burayı değiştirebilirsin
+      bot.chat('/skyblock');
       console.log('2. Skyblock sunucusuna geçiş komutu gönderildi.');
-    }, 7000);
+    }, 8000);
 
-    // 3. ADIM: 12. saniyede Home Noktasına Işınlanır
+    // 3. ADIM: 15. saniyede Home Noktasına Işınlanır
     setTimeout(() => {
       bot.chat('/home');
       console.log('3. Home noktasına ışınlanma komutu gönderildi.');
-    }, 12000);
+    }, 15000);
 
-    // 4. ADIM: 40 saniyede bir AFK kalmama zıplaması
-    setInterval(() => {
-      if (bot) {
+    // Eski zıplama döngüsü varsa temizle, yenisini başlat
+    if (ziplamaInterval) clearInterval(ziplamaInterval);
+    ziplamaInterval = setInterval(() => {
+      if (bot && bot.entity) {
         bot.setControlState('jump', true);
         setTimeout(() => {
           bot.setControlState('jump', false);
@@ -60,6 +64,7 @@ function botuBaslat() {
 
   bot.on('end', () => {
     console.log('Bağlantı koptu, 15 saniye sonra tekrar deneniyor...');
+    if (ziplamaInterval) clearInterval(ziplamaInterval);
     setTimeout(botuBaslat, 15000);
   });
 
