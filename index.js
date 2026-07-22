@@ -28,74 +28,67 @@ function botuBaslat() {
     version: '1.16.5'
   });
 
+  // Güvenli mesaj gönderme fonksiyonu (Çökmeyi engeller)
+  function gundereGonder(komut) {
+    if (bot && bot._client && typeof bot.chat === 'function') {
+      try {
+        bot.chat(komut);
+      } catch (e) {
+        console.log('Komut gönderilemedi:', e.message);
+      }
+    }
+  }
+
   let loginAtildi = false;
   let skyblockAtildi = false;
   let homeAtildi = false;
 
-  // Sunucu mesajlarını dinleme ve otomatik komut tetikleme
+  // Sunucu mesajlarını dinle
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
 
-    // Şifre girme uyarısı veya lobiye giriş
+    // Şifre Girişi
     if (!loginAtildi && (mesaj.includes('/login') || mesaj.includes('Giriş') || mesaj.includes('şifre'))) {
       loginAtildi = true;
       setTimeout(() => {
-        bot.chat('/login efe43802');
+        gundereGonder('/login efe43802');
         console.log('>> /login komutu gönderildi.');
       }, 2000);
     }
 
-    // Skyblock'a geçiş komutu
+    // Skyblock'a Geçiş
     if (loginAtildi && !skyblockAtildi && (mesaj.includes('başarıyla') || mesaj.includes('Hoş geldiniz') || mesaj.includes('Sunucu menüsüne'))) {
       skyblockAtildi = true;
       setTimeout(() => {
-        bot.chat('/skyblock');
+        gundereGonder('/skyblock');
         console.log('>> /skyblock komutu gönderildi.');
       }, 4000);
     }
   });
 
-  // Dünya değiştiğinde (Lobiden Skyblock'a geçince) /home atma
+  // Oyuna/Dünyaya girildiğinde
   bot.on('spawn', () => {
+    console.log('>> Bot oyunda doğdu.');
+
+    // Eğer Skyblock'a geçildiyse Home at
     if (skyblockAtildi && !homeAtildi) {
       homeAtildi = true;
-      console.log('>> Skyblock dunyasina girildi, /home atiliyor...');
       setTimeout(() => {
-        bot.chat('/home');
-        console.log('>> /home komutu gonderildi.');
+        gundereGonder('/home');
+        console.log('>> /home komutu gönderildi.');
       }, 5000);
     }
   });
-
-  // Yedek Zamanlayıcı (Eğer sunucu mesajları yakalanamazsa garantiye almak için)
-  setTimeout(() => {
-    if (!loginAtildi) {
-      bot.chat('/login efe43802');
-      console.log('>> Yedek /login atıldı.');
-    }
-  }, 5000);
-
-  setTimeout(() => {
-    if (!skyblockAtildi) {
-      bot.chat('/skyblock');
-      console.log('>> Yedek /skyblock atıldı.');
-    }
-  }, 12000);
-
-  setTimeout(() => {
-    if (!homeAtildi) {
-      bot.chat('/home');
-      console.log('>> Yedek /home atıldı.');
-    }
-  }, 25000);
 
   // AFK Zıplama Döngüsü
   if (ziplamaInterval) clearInterval(ziplamaInterval);
   ziplamaInterval = setInterval(() => {
     if (bot && bot.entity) {
       bot.setControlState('jump', true);
-      setTimeout(() => bot.setControlState('jump', false), 500);
+      setTimeout(() => {
+        if (bot && bot.entity) bot.setControlState('jump', false);
+      }, 500);
     }
   }, 40000);
 
