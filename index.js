@@ -16,13 +16,20 @@ function botuBaslat() {
   const bot = mineflayer.createBot({
     host: 'play.reborncraft.pw',
     port: 25565,
-    username: 'AFK_Karakter_Adin',
+    username: 'xBetray_31_AFK',
     version: false
   });
 
   bot.on('spawn', () => {
     console.log('Bot oyuna girdi!');
 
+    // Oyuna girdikten 3 saniye sonra /home yazıp ayarladığın konuma ışınlanır
+    setTimeout(() => {
+      bot.chat('/home');
+      console.log('Home noktasına ışınlanma komutu gönderildi.');
+    }, 3000);
+
+    // 40 saniyede bir zıplama hareketi (AFK atılmamak için)
     setInterval(() => {
       if (bot) {
         bot.setControlState('jump', true);
