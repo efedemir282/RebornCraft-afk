@@ -16,10 +16,7 @@ let ziplamaInterval = null;
 let baglantiDenedi = false;
 
 function botuBaslat() {
-  if (baglantiDenedi) {
-    console.log('Zaten aktif bir bağlantı denemesi var, bekleniyor...');
-    return;
-  }
+  if (baglantiDenedi) return;
 
   console.log('Sunucuya bağlanılıyor...');
   baglantiDenedi = true;
@@ -31,35 +28,39 @@ function botuBaslat() {
     version: '1.16.5'
   });
 
+  // SUNUCUDAN GELEN TÜM SOHBET MESAJLARINI KONSOLA YAZDIRIR
+  bot.on('message', (jsonMsg) => {
+    const mesaj = jsonMsg.toString().trim();
+    if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
+  });
+
   bot.once('spawn', () => {
-    console.log('Bot başarıyla oyuna girdi! Komutlar sırayla gönderiliyor...');
+    console.log('Bot ilk doğuşunu yaptı, işlemler başlatılıyor...');
 
     // 1. Şifre (3. saniye)
     setTimeout(() => {
       bot.chat('/login efe43802');
-      console.log('1. Şifre gönderildi.');
+      console.log('>> /login komutu atıldı.');
     }, 3000);
 
     // 2. Skyblock (8. saniye)
     setTimeout(() => {
       bot.chat('/skyblock');
-      console.log('2. Skyblock sunucusuna geçiş komutu gönderildi.');
+      console.log('>> /skyblock komutu atıldı.');
     }, 8000);
 
     // 3. Home (15. saniye)
     setTimeout(() => {
       bot.chat('/home');
-      console.log('3. Home noktasına ışınlanma komutu gönderildi.');
+      console.log('>> /home komutu atıldı.');
     }, 15000);
 
-    // AFK Zıplama Döngüsü
+    // AFK Zıplama
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     ziplamaInterval = setInterval(() => {
       if (bot && bot.entity) {
         bot.setControlState('jump', true);
-        setTimeout(() => {
-          bot.setControlState('jump', false);
-        }, 500);
+        setTimeout(() => bot.setControlState('jump', false), 500);
       }
     }, 40000);
   });
@@ -72,7 +73,7 @@ function botuBaslat() {
     console.log('Bağlantı koptu. 30 saniye sonra tekrar denenecek...');
     baglantiDenedi = false;
     if (ziplamaInterval) clearInterval(ziplamaInterval);
-    setTimeout(botuBaslat, 30000); // Süre 30 saniyeye çıkarıldı
+    setTimeout(botuBaslat, 30000);
   });
 
   bot.on('error', (err) => {
