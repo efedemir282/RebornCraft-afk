@@ -25,10 +25,10 @@ function botuBaslat() {
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.16.5'
+    version: '1.20.4' // Sürüm güncellendi (Sunucunun kabul ettiği üst sürümler için)
   });
 
-  // Güvenli mesaj gönderme fonksiyonu (Çökmeyi engeller)
+  // Güvenli mesaj gönderme fonksiyonu
   function gundereGonder(komut) {
     if (bot && bot._client && typeof bot.chat === 'function') {
       try {
@@ -71,7 +71,7 @@ function botuBaslat() {
   bot.on('spawn', () => {
     console.log('>> Bot oyunda doğdu.');
 
-    // Eğer Skyblock'a geçildiyse Home at
+    // Skyblock dünyasına geçiş sağlandıysa /home at
     if (skyblockAtildi && !homeAtildi) {
       homeAtildi = true;
       setTimeout(() => {
