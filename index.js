@@ -5,7 +5,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Bot aktif ve çalışıyor!');
+  res.send('Bot aktif!');
 });
 
 app.listen(PORT, () => {
@@ -21,14 +21,15 @@ function botuBaslat() {
   console.log('Sunucuya bağlanılıyor...');
   baglantiDenedi = true;
 
+  // version: false -> Sunucunun istediği protokolü otomatik algılar
   const bot = mineflayer.createBot({
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.20.4' // Sürüm güncellendi (Sunucunun kabul ettiği üst sürümler için)
+    version: false,
+    checkTimeoutInterval: 60 * 1000
   });
 
-  // Güvenli mesaj gönderme fonksiyonu
   function gundereGonder(komut) {
     if (bot && bot._client && typeof bot.chat === 'function') {
       try {
@@ -43,7 +44,6 @@ function botuBaslat() {
   let skyblockAtildi = false;
   let homeAtildi = false;
 
-  // Sunucu mesajlarını dinle
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
@@ -67,11 +67,9 @@ function botuBaslat() {
     }
   });
 
-  // Oyuna/Dünyaya girildiğinde
   bot.on('spawn', () => {
     console.log('>> Bot oyunda doğdu.');
 
-    // Skyblock dünyasına geçiş sağlandıysa /home at
     if (skyblockAtildi && !homeAtildi) {
       homeAtildi = true;
       setTimeout(() => {
@@ -81,7 +79,7 @@ function botuBaslat() {
     }
   });
 
-  // AFK Zıplama Döngüsü
+  // AFK Zıplama
   if (ziplamaInterval) clearInterval(ziplamaInterval);
   ziplamaInterval = setInterval(() => {
     if (bot && bot.entity) {
