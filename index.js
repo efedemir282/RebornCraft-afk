@@ -28,42 +28,76 @@ function botuBaslat() {
     version: '1.16.5'
   });
 
-  // Sunucu mesajlarını konsola yazdır
+  let loginAtildi = false;
+  let skyblockAtildi = false;
+  let homeAtildi = false;
+
+  // Sunucu mesajlarını dinleme ve otomatik komut tetikleme
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
+
+    // Şifre girme uyarısı veya lobiye giriş
+    if (!loginAtildi && (mesaj.includes('/login') || mesaj.includes('Giriş') || mesaj.includes('şifre'))) {
+      loginAtildi = true;
+      setTimeout(() => {
+        bot.chat('/login efe43802');
+        console.log('>> /login komutu gönderildi.');
+      }, 2000);
+    }
+
+    // Skyblock'a geçiş komutu
+    if (loginAtildi && !skyblockAtildi && (mesaj.includes('başarıyla') || mesaj.includes('Hoş geldiniz') || mesaj.includes('Sunucu menüsüne'))) {
+      skyblockAtildi = true;
+      setTimeout(() => {
+        bot.chat('/skyblock');
+        console.log('>> /skyblock komutu gönderildi.');
+      }, 4000);
+    }
   });
 
-  bot.once('spawn', () => {
-    console.log('Bot ilk doğuşunu yaptı, komut akışı başlatılıyor...');
+  // Dünya değiştiğinde (Lobiden Skyblock'a geçince) /home atma
+  bot.on('spawn', () => {
+    if (skyblockAtildi && !homeAtildi) {
+      homeAtildi = true;
+      console.log('>> Skyblock dunyasina girildi, /home atiliyor...');
+      setTimeout(() => {
+        bot.chat('/home');
+        console.log('>> /home komutu gonderildi.');
+      }, 5000);
+    }
+  });
 
-    // 1. ADIM: 4. saniyede Şifre Girer
-    setTimeout(() => {
+  // Yedek Zamanlayıcı (Eğer sunucu mesajları yakalanamazsa garantiye almak için)
+  setTimeout(() => {
+    if (!loginAtildi) {
       bot.chat('/login efe43802');
-      console.log('>> /login komutu atıldı.');
-    }, 4000);
+      console.log('>> Yedek /login atıldı.');
+    }
+  }, 5000);
 
-    // 2. ADIM: 10. saniyede Skyblock Sunucusuna Geçer
-    setTimeout(() => {
+  setTimeout(() => {
+    if (!skyblockAtildi) {
       bot.chat('/skyblock');
-      console.log('>> /skyblock komutu atıldı (Aktarım bekleniyor...).');
-    }, 10000);
+      console.log('>> Yedek /skyblock atıldı.');
+    }
+  }, 12000);
 
-    // 3. ADIM: 22. saniyede (Skyblock'a geçiş tamamlandıktan sonra) Home noktasına gider
-    setTimeout(() => {
+  setTimeout(() => {
+    if (!homeAtildi) {
       bot.chat('/home');
-      console.log('>> /home komutu atıldı.');
-    }, 22000);
+      console.log('>> Yedek /home atıldı.');
+    }
+  }, 25000);
 
-    // AFK Zıplama Döngüsü
-    if (ziplamaInterval) clearInterval(ziplamaInterval);
-    ziplamaInterval = setInterval(() => {
-      if (bot && bot.entity) {
-        bot.setControlState('jump', true);
-        setTimeout(() => bot.setControlState('jump', false), 500);
-      }
-    }, 40000);
-  });
+  // AFK Zıplama Döngüsü
+  if (ziplamaInterval) clearInterval(ziplamaInterval);
+  ziplamaInterval = setInterval(() => {
+    if (bot && bot.entity) {
+      bot.setControlState('jump', true);
+      setTimeout(() => bot.setControlState('jump', false), 500);
+    }
+  }, 40000);
 
   bot.on('kicked', (reason) => {
     console.log('Bot sunucudan atıldı:', reason);
