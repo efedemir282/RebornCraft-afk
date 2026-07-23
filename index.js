@@ -21,12 +21,11 @@ function botuBaslat() {
   console.log('Sunucuya bağlanılıyor...');
   baglantiDenedi = true;
 
-  // version: false -> Sunucunun istediği protokolü otomatik algılar
   const bot = mineflayer.createBot({
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: false,
+    version: '1.20.2', // Aktarım kilitlenmelerini önleyen en kararlı ViaVersion sürümü
     checkTimeoutInterval: 60 * 1000
   });
 
@@ -42,7 +41,6 @@ function botuBaslat() {
 
   let loginAtildi = false;
   let skyblockAtildi = false;
-  let homeAtildi = false;
 
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
@@ -57,25 +55,24 @@ function botuBaslat() {
       }, 2000);
     }
 
-    // Skyblock'a Geçiş
-    if (loginAtildi && !skyblockAtildi && (mesaj.includes('başarıyla') || mesaj.includes('Hoş geldiniz') || mesaj.includes('Sunucu menüsüne'))) {
+    // Giriş başarılı olduktan sonra Skyblock'a geçiş yap
+    if (loginAtildi && !skyblockAtildi && mesaj.includes('başarılı')) {
       skyblockAtildi = true;
       setTimeout(() => {
         gundereGonder('/skyblock');
         console.log('>> /skyblock komutu gönderildi.');
-      }, 4000);
+      }, 3000);
     }
   });
 
+  // Dünya değişip Skyblock'a aktarılınca
   bot.on('spawn', () => {
-    console.log('>> Bot oyunda doğdu.');
-
-    if (skyblockAtildi && !homeAtildi) {
-      homeAtildi = true;
+    if (skyblockAtildi) {
+      console.log('>> Skyblock sunucusunda doğuldu. /home gönderiliyor...');
       setTimeout(() => {
         gundereGonder('/home');
-        console.log('>> /home komutu gönderildi.');
-      }, 5000);
+        console.log('>> /home komutu atıldı.');
+      }, 6000);
     }
   });
 
