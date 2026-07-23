@@ -25,12 +25,11 @@ function botuBaslat() {
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.20.4',
-    viewDistance: 'far',
+    version: '1.21.4', // Skyblock sunucusunun istediği güncel 1.21+ sürümü
+    viewDistance: 'tiny',
     checkTimeoutInterval: 60 * 1000
   });
 
-  // Güvenli Sohbet Gönderme
   function komutGonder(komut) {
     if (bot && bot._client && typeof bot.chat === 'function') {
       try {
@@ -41,33 +40,37 @@ function botuBaslat() {
     }
   }
 
-  // Sunucu Sohbet Logları
+  // Sunucu mesajlarını konsola bas
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
   });
 
-  // BOT OYUNA GİRDİĞİ AN TEK BİR DİZİ SIRA ÇALIŞIR
-  bot.once('spawn', () => {
-    console.log('>> Bot lobiye girdi, komut sırası başlatıldı...');
+  let akisBasladi = false;
 
-    // 1. ADIM: 3. saniyede Login atar
+  bot.on('spawn', () => {
+    if (akisBasladi) return;
+    akisBasladi = true;
+
+    console.log('>> Lobiye giriş yapıldı. Komut zinciri çalıştırılıyor...');
+
+    // 1. ADIM: 4. saniyede Login
     setTimeout(() => {
       komutGonder('/login efe43802');
-      console.log('>> 1/3: /login gönderildi.');
-    }, 3000);
+      console.log('>> [1/3] /login gönderildi.');
+    }, 4000);
 
-    // 2. ADIM: 9. saniyede Skyblock sunucusuna geçer
+    // 2. ADIM: 10. saniyede Skyblock sunucusuna geçiş
     setTimeout(() => {
       komutGonder('/skyblock');
-      console.log('>> 2/3: /skyblock gönderildi.');
-    }, 9000);
+      console.log('>> [2/3] /skyblock gönderildi.');
+    }, 10000);
 
-    // 3. ADIM: 20. saniyede (Skyblock'a aktarıldıktan sonra) Adana gider
+    // 3. ADIM: 22. saniyede (Skyblock'a geçtikten sonra) Adana ışınlanma
     setTimeout(() => {
       komutGonder('/home');
-      console.log('>> 3/3: /home gönderildi.');
-    }, 20000);
+      console.log('>> [3/3] /home gönderildi.');
+    }, 22000);
   });
 
   // AFK Zıplama Döngüsü (40 saniyede bir)
@@ -88,6 +91,7 @@ function botuBaslat() {
   bot.on('end', () => {
     console.log('Bağlantı koptu. 30 saniye sonra tekrar denenecek...');
     baglantiDenedi = false;
+    akisBasladi = false;
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     setTimeout(botuBaslat, 30000);
   });
@@ -95,6 +99,7 @@ function botuBaslat() {
   bot.on('error', (err) => {
     console.log('Hata oluştu:', err.message);
     baglantiDenedi = false;
+    akisBasladi = false;
   });
 }
 
