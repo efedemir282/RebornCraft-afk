@@ -25,7 +25,7 @@ function botuBaslat() {
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.21.1',
+    version: '1.21.6', // Skyblock sunucusunun kesin olarak istediği minimum sürüm
     viewDistance: 'tiny',
     checkTimeoutInterval: 60 * 1000
   });
@@ -40,13 +40,13 @@ function botuBaslat() {
     }
   }
 
-  // Partikül ve önemsiz protokol paket hatalarını konsola basıp kirletmesini engelle
-  bot._client.on('error', (err) => {
+  // Protokol/partikül uyarısı gibi önemsiz paket hatalarını gizle
+  bot._client?.on('error', (err) => {
     if (err.name === 'PartialReadError' || err.message?.includes('Particle')) return;
     console.log('Paket Uyarısı:', err.message);
   });
 
-  // Sunucu mesajlarını temizce konsola yazdır
+  // Sunucu mesajlarını konsola yazdır
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
@@ -58,7 +58,7 @@ function botuBaslat() {
     if (akisBasladi) return;
     akisBasladi = true;
 
-    console.log('>> Bot oyuna doğdu. Komut akışı başlatılıyor...');
+    console.log('>> Bot lobiye bağlandı. Komut akışı başlatılıyor...');
 
     // 1. ADIM: Login
     setTimeout(() => {
@@ -72,7 +72,7 @@ function botuBaslat() {
       console.log('>> [2/3] /skyblock gönderildi.');
     }, 10000);
 
-    // 3. ADIM: Ada evine ışınlanma
+    // 3. ADIM: Ada evine ışınlanma (Skyblock aktarımı tamamlandıktan sonra)
     setTimeout(() => {
       komutGonder('/home');
       console.log('>> [3/3] /home gönderildi.');
