@@ -13,6 +13,7 @@ app.listen(PORT, () => {
 });
 
 let ziplamaInterval = null;
+let kontrolInterval = null;
 let baglantiDenedi = false;
 
 function botuBaslat() {
@@ -25,9 +26,10 @@ function botuBaslat() {
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.21.6', // Skyblock sunucusunun kesin olarak istediği minimum sürüm
+    version: '1.21.6', // Sunucunun istediği kesin sürüm
     viewDistance: 'tiny',
-    checkTimeoutInterval: 60 * 1000
+    checkTimeoutInterval: 60 * 1000,
+    physicsEnabled: false // RAM kullanımını düşürmek için
   });
 
   function komutGonder(komut) {
@@ -40,16 +42,40 @@ function botuBaslat() {
     }
   }
 
-  // Protokol/partikül uyarısı gibi önemsiz paket hatalarını gizle
+  // Protokol uyarısı gibi önemsiz paket hatalarını gizle
   bot._client?.on('error', (err) => {
     if (err.name === 'PartialReadError' || err.message?.includes('Particle')) return;
     console.log('Paket Uyarısı:', err.message);
   });
 
-  // Sunucu mesajlarını konsola yazdır
+  // Adaya Otomatik Dönüş Fonksiyonu
+  function adayaDön() {
+    console.log('>> Adaya geri dönülüyor (/skyblock -> /home)...');
+    setTimeout(() => {
+      komutGonder('/skyblock');
+    }, 2000);
+
+    setTimeout(() => {
+      komutGonder('/home');
+    }, 12000);
+  }
+
+  // Sunucu mesajlarını dinle ve Adadan / Skyblock'tan atılma durumlarını yakala
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
+
+    // Eğer bot adadan, Skyblock'tan atılırsa veya lobiye düşerse tetiklenir
+    if (
+      mesaj.includes('Lobiye') ||
+      mesaj.includes('aktarıldınız') ||
+      mesaj.includes('Aktarılıyorsunuz') ||
+      mesaj.includes('yeniden başlatılıyor') ||
+      mesaj.includes('Lütfen giriş komutunu kullanın')
+    ) {
+      console.log('>> Bot adadan ayrıldı veya lobiye düştü! Tekrar adaya dönülüyor...');
+      adayaDön();
+    }
   });
 
   let akisBasladi = false;
@@ -58,7 +84,7 @@ function botuBaslat() {
     if (akisBasladi) return;
     akisBasladi = true;
 
-    console.log('>> Bot lobiye bağlandı. Komut akışı başlatılıyor...');
+    console.log('>> Bot oyuna bağlandı. Komut akışı başlatılıyor...');
 
     // 1. ADIM: Login
     setTimeout(() => {
@@ -66,17 +92,10 @@ function botuBaslat() {
       console.log('>> [1/3] /login gönderildi.');
     }, 4000);
 
-    // 2. ADIM: Skyblock sunucusuna geçiş
+    // 2. ve 3. ADIM: Skyblock ve Home
     setTimeout(() => {
-      komutGonder('/skyblock');
-      console.log('>> [2/3] /skyblock gönderildi.');
-    }, 10000);
-
-    // 3. ADIM: Ada evine ışınlanma (Skyblock aktarımı tamamlandıktan sonra)
-    setTimeout(() => {
-      komutGonder('/home');
-      console.log('>> [3/3] /home gönderildi.');
-    }, 22000);
+      adayaDön();
+    }, 8000);
   });
 
   // AFK Zıplama Döngüsü (40 saniyede bir)
@@ -90,6 +109,15 @@ function botuBaslat() {
     }
   }, 40000);
 
+  // Garanti Emniyet: Her 15 dakikada bir otomatik /home çeker
+  if (kontrolInterval) clearInterval(kontrolInterval);
+  kontrolInterval = setInterval(() => {
+    if (bot && bot.entity) {
+      console.log('>> Periyodik kontrol: Adaya /home çekiliyor...');
+      komutGonder('/home');
+    }
+  }, 15 * 60 * 1000);
+
   bot.on('kicked', (reason) => {
     console.log('Bot sunucudan atıldı:', reason);
   });
@@ -99,6 +127,7 @@ function botuBaslat() {
     baglantiDenedi = false;
     akisBasladi = false;
     if (ziplamaInterval) clearInterval(ziplamaInterval);
+    if (kontrolInterval) clearInterval(kontrolInterval);
     setTimeout(botuBaslat, 30000);
   });
 
