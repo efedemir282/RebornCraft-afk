@@ -26,11 +26,12 @@ function botuBaslat() {
     port: 25565,
     username: 'xBetray_31_AFK',
     version: '1.20.4',
-    viewDistance: 'far', // Paket uyuşmazlığını çözer
+    viewDistance: 'far',
     checkTimeoutInterval: 60 * 1000
   });
 
-  function gundereGonder(komut) {
+  // Güvenli Sohbet Gönderme
+  function komutGonder(komut) {
     if (bot && bot._client && typeof bot.chat === 'function') {
       try {
         bot.chat(komut);
@@ -40,43 +41,36 @@ function botuBaslat() {
     }
   }
 
-  let loginAtildi = false;
-  let skyblockAtildi = false;
-
+  // Sunucu Sohbet Logları
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
-
-    // Şifre Girişi
-    if (!loginAtildi && (mesaj.includes('/login') || mesaj.includes('Giriş') || mesaj.includes('şifre'))) {
-      loginAtildi = true;
-      setTimeout(() => {
-        gundereGonder('/login efe43802');
-        console.log('>> /login komutu gönderildi.');
-      }, 2000);
-    }
-
-    // Giriş başarılı uyarısından sonra Skyblock at
-    if (loginAtildi && !skyblockAtildi && mesaj.includes('başarılı')) {
-      skyblockAtildi = true;
-      setTimeout(() => {
-        gundereGonder('/skyblock');
-        console.log('>> /skyblock komutu gönderildi.');
-      }, 3000);
-    }
   });
 
-  bot.on('spawn', () => {
-    if (skyblockAtildi) {
-      console.log('>> Skyblock sunucusunda doğuldu. /home gönderiliyor...');
-      setTimeout(() => {
-        gundereGonder('/home');
-        console.log('>> /home komutu atıldı.');
-      }, 6000);
-    }
+  // BOT OYUNA GİRDİĞİ AN TEK BİR DİZİ SIRA ÇALIŞIR
+  bot.once('spawn', () => {
+    console.log('>> Bot lobiye girdi, komut sırası başlatıldı...');
+
+    // 1. ADIM: 3. saniyede Login atar
+    setTimeout(() => {
+      komutGonder('/login efe43802');
+      console.log('>> 1/3: /login gönderildi.');
+    }, 3000);
+
+    // 2. ADIM: 9. saniyede Skyblock sunucusuna geçer
+    setTimeout(() => {
+      komutGonder('/skyblock');
+      console.log('>> 2/3: /skyblock gönderildi.');
+    }, 9000);
+
+    // 3. ADIM: 20. saniyede (Skyblock'a aktarıldıktan sonra) Adana gider
+    setTimeout(() => {
+      komutGonder('/home');
+      console.log('>> 3/3: /home gönderildi.');
+    }, 20000);
   });
 
-  // AFK Zıplama
+  // AFK Zıplama Döngüsü (40 saniyede bir)
   if (ziplamaInterval) clearInterval(ziplamaInterval);
   ziplamaInterval = setInterval(() => {
     if (bot && bot.entity) {
