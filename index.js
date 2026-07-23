@@ -26,10 +26,10 @@ function botuBaslat() {
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.21.6', // Sunucunun istediği kesin sürüm
+    version: '1.21.6',
     viewDistance: 'tiny',
     checkTimeoutInterval: 60 * 1000,
-    physicsEnabled: false // RAM kullanımını düşürmek için
+    physicsEnabled: true // Zıplayabilmesi için fizik açıldı!
   });
 
   function komutGonder(komut) {
@@ -42,14 +42,14 @@ function botuBaslat() {
     }
   }
 
-  // Protokol uyarısı gibi önemsiz paket hatalarını gizle
+  // Paket uyarılarını gizle
   bot._client?.on('error', (err) => {
     if (err.name === 'PartialReadError' || err.message?.includes('Particle')) return;
     console.log('Paket Uyarısı:', err.message);
   });
 
-  // Adaya Otomatik Dönüş Fonksiyonu
-  function adayaDön() {
+  // Adaya Dönüş Fonksiyonu
+  function adayaDon() {
     console.log('>> Adaya geri dönülüyor (/skyblock -> /home)...');
     setTimeout(() => {
       komutGonder('/skyblock');
@@ -60,12 +60,11 @@ function botuBaslat() {
     }, 12000);
   }
 
-  // Sunucu mesajlarını dinle ve Adadan / Skyblock'tan atılma durumlarını yakala
+  // Sunucu mesajlarını dinle (Lobiye atılma durumu)
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
 
-    // Eğer bot adadan, Skyblock'tan atılırsa veya lobiye düşerse tetiklenir
     if (
       mesaj.includes('Lobiye') ||
       mesaj.includes('aktarıldınız') ||
@@ -74,7 +73,7 @@ function botuBaslat() {
       mesaj.includes('Lütfen giriş komutunu kullanın')
     ) {
       console.log('>> Bot adadan ayrıldı veya lobiye düştü! Tekrar adaya dönülüyor...');
-      adayaDön();
+      adayaDon();
     }
   });
 
@@ -94,29 +93,30 @@ function botuBaslat() {
 
     // 2. ve 3. ADIM: Skyblock ve Home
     setTimeout(() => {
-      adayaDön();
+      adayaDon();
     }, 8000);
+
+    // Zıplama Döngüsünü Başlat (40 saniyede bir)
+    if (ziplamaInterval) clearInterval(ziplamaInterval);
+    ziplamaInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        console.log('>> AFK zıplaması yapılıyor...');
+        bot.setControlState('jump', true);
+        setTimeout(() => {
+          if (bot && bot.entity) bot.setControlState('jump', false);
+        }, 500);
+      }
+    }, 40000);
+
+    // 15 dakikalık periyodik /home emniyeti
+    if (kontrolInterval) clearInterval(kontrolInterval);
+    kontrolInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        console.log('>> Periyodik kontrol: Adaya /home çekiliyor...');
+        komutGonder('/home');
+      }
+    }, 15 * 60 * 1000);
   });
-
-  // AFK Zıplama Döngüsü (40 saniyede bir)
-  if (ziplamaInterval) clearInterval(ziplamaInterval);
-  ziplamaInterval = setInterval(() => {
-    if (bot && bot.entity) {
-      bot.setControlState('jump', true);
-      setTimeout(() => {
-        if (bot && bot.entity) bot.setControlState('jump', false);
-      }, 500);
-    }
-  }, 40000);
-
-  // Garanti Emniyet: Her 15 dakikada bir otomatik /home çeker
-  if (kontrolInterval) clearInterval(kontrolInterval);
-  kontrolInterval = setInterval(() => {
-    if (bot && bot.entity) {
-      console.log('>> Periyodik kontrol: Adaya /home çekiliyor...');
-      komutGonder('/home');
-    }
-  }, 15 * 60 * 1000);
 
   bot.on('kicked', (reason) => {
     console.log('Bot sunucudan atıldı:', reason);
