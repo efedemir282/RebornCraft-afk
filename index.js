@@ -25,7 +25,8 @@ function botuBaslat() {
     host: 'play.reborncraft.pw',
     port: 25565,
     username: 'xBetray_31_AFK',
-    version: '1.20.2', // Aktarım kilitlenmelerini önleyen en kararlı ViaVersion sürümü
+    version: '1.20.4',
+    viewDistance: 'far', // Paket uyuşmazlığını çözer
     checkTimeoutInterval: 60 * 1000
   });
 
@@ -55,7 +56,7 @@ function botuBaslat() {
       }, 2000);
     }
 
-    // Giriş başarılı olduktan sonra Skyblock'a geçiş yap
+    // Giriş başarılı uyarısından sonra Skyblock at
     if (loginAtildi && !skyblockAtildi && mesaj.includes('başarılı')) {
       skyblockAtildi = true;
       setTimeout(() => {
@@ -65,7 +66,6 @@ function botuBaslat() {
     }
   });
 
-  // Dünya değişip Skyblock'a aktarılınca
   bot.on('spawn', () => {
     if (skyblockAtildi) {
       console.log('>> Skyblock sunucusunda doğuldu. /home gönderiliyor...');
