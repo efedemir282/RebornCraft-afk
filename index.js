@@ -28,8 +28,8 @@ function botuBaslat() {
     username: 'xBetray_31_AFK',
     version: '1.21.6',
     viewDistance: 'tiny',
-    checkTimeoutInterval: 60 * 1000,
-    physicsEnabled: true // Zıplayabilmesi için fizik açıldı!
+    checkTimeoutInterval: 120 * 1000, // Timeout süresini 120 saniyeye çıkardık (lag toleransı)
+    physicsEnabled: true
   });
 
   function komutGonder(komut) {
@@ -42,9 +42,13 @@ function botuBaslat() {
     }
   }
 
-  // Paket uyarılarını gizle
+  // Paket ve Zaman Aşımı Uyarılarını Yakala
   bot._client?.on('error', (err) => {
-    if (err.name === 'PartialReadError' || err.message?.includes('Particle')) return;
+    if (
+      err.name === 'PartialReadError' || 
+      err.message?.includes('Particle') || 
+      err.message?.includes('timed out')
+    ) return;
     console.log('Paket Uyarısı:', err.message);
   });
 
@@ -60,7 +64,7 @@ function botuBaslat() {
     }, 12000);
   }
 
-  // Sunucu mesajlarını dinle (Lobiye atılma durumu)
+  // Sunucu mesajlarını dinle
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
@@ -96,7 +100,7 @@ function botuBaslat() {
       adayaDon();
     }, 8000);
 
-    // Zıplama Döngüsünü Başlat (40 saniyede bir)
+    // AFK Zıplaması (40 saniyede bir)
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     ziplamaInterval = setInterval(() => {
       if (bot && bot.entity) {
@@ -123,16 +127,16 @@ function botuBaslat() {
   });
 
   bot.on('end', () => {
-    console.log('Bağlantı koptu. 30 saniye sonra tekrar denenecek...');
+    console.log('Bağlantı koptu. 15 saniye sonra tekrar deneniyor...');
     baglantiDenedi = false;
     akisBasladi = false;
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     if (kontrolInterval) clearInterval(kontrolInterval);
-    setTimeout(botuBaslat, 30000);
+    setTimeout(botuBaslat, 15000);
   });
 
   bot.on('error', (err) => {
-    if (err.name === 'PartialReadError') return;
+    if (err.name === 'PartialReadError' || err.message?.includes('timed out')) return;
     console.log('Hata oluştu:', err.message);
     baglantiDenedi = false;
     akisBasladi = false;
