@@ -12,8 +12,8 @@ app.listen(PORT, () => {
   console.log('Web sunucusu hazır.');
 });
 
-let ziplamaInterval = null;
 let kontrolInterval = null;
+let minyonInterval = null;
 let baglantiDenedi = false;
 
 function botuBaslat() {
@@ -28,7 +28,7 @@ function botuBaslat() {
     username: 'xBetray_31_AFK',
     version: '1.21.6',
     viewDistance: 'tiny',
-    checkTimeoutInterval: 120 * 1000, // Timeout süresini 120 saniyeye çıkardık (lag toleransı)
+    checkTimeoutInterval: 120 * 1000,
     physicsEnabled: true
   });
 
@@ -39,6 +39,51 @@ function botuBaslat() {
       } catch (e) {
         console.log('Komut gönderilemedi:', e.message);
       }
+    }
+  }
+
+  // Minyonu Besleme Fonksiyonu
+  function minyonuBesle() {
+    if (!bot || !bot.entity) return;
+
+    // Etraftaki en yakın minyonu (armor stand veya entity) bul
+    const minyon = bot.nearestEntity((e) => 
+      e.position.distanceTo(bot.entity.position) < 4 && e !== bot.entity
+    );
+
+    if (!minyon) {
+      console.log('>> [MİNYON]: Yakında beslenecek minyon bulunamadı!');
+      return;
+    }
+
+    console.log('>> [MİNYON]: Minyona sağ tıklanıyor...');
+
+    const windowHandler = async (window) => {
+      try {
+        console.log(`>> [MİNYON]: Menü açıldı -> ${window.title}`);
+
+        // Altın Elma 36. slotta (5. satır 1. sütun)
+        setTimeout(async () => {
+          await bot.clickWindow(36, 0, 0);
+          console.log('>> [MİNYON]: Altın elmaya basıldı, minyon beslendi! 🍏');
+
+          setTimeout(() => {
+            bot.closeWindow(window);
+          }, 1000);
+        }, 1500);
+
+      } catch (err) {
+        console.log('>> [MİNYON]: Besleme sırasında hata:', err.message);
+      }
+    };
+
+    bot.once('windowOpen', windowHandler);
+
+    try {
+      bot.activateEntity(minyon);
+    } catch (err) {
+      bot.removeListener('windowOpen', windowHandler);
+      console.log('>> [MİNYON]: Minyona tıklanamadı:', err.message);
     }
   }
 
@@ -100,17 +145,10 @@ function botuBaslat() {
       adayaDon();
     }, 8000);
 
-    // AFK Zıplaması (40 saniyede bir)
-    if (ziplamaInterval) clearInterval(ziplamaInterval);
-    ziplamaInterval = setInterval(() => {
-      if (bot && bot.entity) {
-        console.log('>> AFK zıplaması yapılıyor...');
-        bot.setControlState('jump', true);
-        setTimeout(() => {
-          if (bot && bot.entity) bot.setControlState('jump', false);
-        }, 500);
-      }
-    }, 40000);
+    // İlk girişte 25. saniyede bir defa minyonu beslemeyi dene
+    setTimeout(() => {
+      minyonuBesle();
+    }, 25000);
 
     // 15 dakikalık periyodik /home emniyeti
     if (kontrolInterval) clearInterval(kontrolInterval);
@@ -120,6 +158,14 @@ function botuBaslat() {
         komutGonder('/home');
       }
     }, 15 * 60 * 1000);
+
+    // Her 30 dakikada bir otomatik Minyon Besleme
+    if (minyonInterval) clearInterval(minyonInterval);
+    minyonInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        minyonuBesle();
+      }
+    }, 30 * 60 * 1000);
   });
 
   bot.on('kicked', (reason) => {
@@ -130,8 +176,8 @@ function botuBaslat() {
     console.log('Bağlantı koptu. 15 saniye sonra tekrar deneniyor...');
     baglantiDenedi = false;
     akisBasladi = false;
-    if (ziplamaInterval) clearInterval(ziplamaInterval);
     if (kontrolInterval) clearInterval(kontrolInterval);
+    if (minyonInterval) clearInterval(minyonInterval);
     setTimeout(botuBaslat, 15000);
   });
 
