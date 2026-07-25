@@ -1,18 +1,16 @@
 const mineflayer = require('mineflayer');
 const express = require('express');
 
-// --- 1. RENDER PORT SİSTEMİ (EN ÜSTE ALINDI) ---
+// --- 1. RENDER PORT SİSTEMİ ---
 const app = express();
-// Render PORT değişkenini kendi otomatik atar, yoksa 3000 kullanır
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.status(200).send('Bot 7/24 Aktif ve Çalışıyor!');
+  res.status(200).send('Bot 7/24 Aktif!');
 });
 
-// Render'a portun açık olduğunu kanıtlamak için 0.0.0.0 IP'sinden dinliyoruz
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[RENDER SİSTEMİ] Web sunucusu ${PORT} portunda başarıyla başlatıldı.`);
+  console.log(`[RENDER SİSTEMİ] Web sunucusu ${PORT} portunda aktif.`);
 });
 
 // --- GLOBAL ÇÖKME KORUMALARI ---
@@ -24,6 +22,7 @@ process.on('unhandledRejection', (reason) => {
   console.log('[Sistem Uyarısı] Rejection:', reason);
 });
 
+let afkInterval = null;
 let kontrolInterval = null;
 let minyonInterval = null;
 let baglantiDenedi = false;
@@ -44,16 +43,12 @@ function botuBaslat() {
       version: '1.21.6',
       viewDistance: 'tiny',
       checkTimeoutInterval: 120 * 1000,
-      physicsEnabled: false // RAM koruması
+      physicsEnabled: true // Hareket için fizik açık
     });
   } catch (err) {
     console.log('Bot başlatma hatası:', err.message);
     sifirlaVeYenidenBaslat();
     return;
-  }
-
-  if (bot.world) {
-    bot.world.cachingAllowed = false;
   }
 
   function komutGonder(komut) {
@@ -67,6 +62,7 @@ function botuBaslat() {
   }
 
   function sifirlaVeYenidenBaslat() {
+    if (afkInterval) clearInterval(afkInterval);
     if (kontrolInterval) clearInterval(kontrolInterval);
     if (minyonInterval) clearInterval(minyonInterval);
 
@@ -165,6 +161,22 @@ function botuBaslat() {
     // Giriş ve Adaya Işınlanma
     setTimeout(() => komutGonder('/login efe43802'), 4000);
     setTimeout(() => adayaDon(), 8000);
+
+    // BİZİ 7/24 OYUNDA TUTAN AFK HAREKET DÖNGÜSÜ (Her 25 Saniyede Bir Zıplama + Kol Sallama)
+    if (afkInterval) clearInterval(afkInterval);
+    afkInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        console.log('>> [AFK KORUMA]: Zıplama ve kol sallama yapılıyor...');
+        bot.setControlState('jump', true);
+        try { bot.swingArm('right'); } catch (e) {}
+
+        setTimeout(() => {
+          if (bot && bot.entity) {
+            bot.setControlState('jump', false);
+          }
+        }, 400);
+      }
+    }, 25000);
 
     // İlk Girişte Minyon Besleme
     setTimeout(() => minyonuBesle(), 25000);
