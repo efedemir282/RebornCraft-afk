@@ -14,14 +14,13 @@ app.listen(PORT, () => {
 
 // --- GLOBAL ÇÖKME KORUMALARI ---
 process.on('uncaughtException', (err) => {
-  console.log('[Sistem Uyarısı] Yakalanmayan Hata:', err.message);
+  console.log('[Sistem Uyarısı] Hata:', err.message);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.log('[Sistem Uyarısı] Yakalanmayan Rejection:', reason);
+process.on('unhandledRejection', (reason) => {
+  console.log('[Sistem Uyarısı] Rejection:', reason);
 });
 
-let afkInterval = null;
 let kontrolInterval = null;
 let minyonInterval = null;
 let baglantiDenedi = false;
@@ -42,12 +41,17 @@ function botuBaslat() {
       version: '1.21.6',
       viewDistance: 'tiny',
       checkTimeoutInterval: 120 * 1000,
-      physicsEnabled: true
+      physicsEnabled: false // RAM kullanımını sıfıra indirmek için fiziği kapattık
     });
   } catch (err) {
-    console.log('Bot oluşturulurken hata:', err.message);
+    console.log('Bot başlatma hatası:', err.message);
     sifirlaVeYenidenBaslat();
     return;
+  }
+
+  // Hafıza Sızıntısını (RAM Dolmasını) Önlemek İçin Dünyayı Kaydetmeyi Kapat
+  if (bot.world) {
+    bot.world.cachingAllowed = false;
   }
 
   function komutGonder(komut) {
@@ -55,13 +59,12 @@ function botuBaslat() {
       try {
         bot.chat(komut);
       } catch (e) {
-        console.log('Komut gönderilemedi:', e.message);
+        console.log('Komut hatası:', e.message);
       }
     }
   }
 
   function sifirlaVeYenidenBaslat() {
-    if (afkInterval) clearInterval(afkInterval);
     if (kontrolInterval) clearInterval(kontrolInterval);
     if (minyonInterval) clearInterval(minyonInterval);
 
@@ -72,20 +75,18 @@ function botuBaslat() {
       bot = null;
     }
 
-    console.log('15 saniye sonra bağlantı tekrar denenecek...');
-    setTimeout(botuBaslat, 15000);
+    console.log('10 saniye sonra tekrar bağlanılacak...');
+    setTimeout(botuBaslat, 10000);
   }
 
-  // Özel Minyonu İsmine Göre Bulma ve Besleme
+  // Minyon Besleme Fonksiyonu
   function minyonuBesle() {
     if (!bot || !bot.entity) return;
 
-    // Etrafta ismi "CEHENNEM" içeren veya en yakın varlığı bul
     const minyon = bot.nearestEntity((e) => {
       const mesafe = e.position.distanceTo(bot.entity.position) < 4;
       if (!mesafe || e === bot.entity) return false;
 
-      // Özel İsim Kontrolü (Hologram / Armor Stand)
       const customName = e.customName ? JSON.stringify(e.customName) : '';
       const isMinyonName = customName.toUpperCase().includes('CEHENNEM');
 
@@ -103,7 +104,6 @@ function botuBaslat() {
       try {
         console.log(`>> [MİNYON]: Menü açıldı -> ${window.title}`);
 
-        // Slot 36 (Altın Elma)
         setTimeout(async () => {
           await bot.clickWindow(36, 0, 0);
           console.log('>> [MİNYON]: Altın elmaya basıldı, minyon beslendi! 🍏');
@@ -128,26 +128,15 @@ function botuBaslat() {
     }
   }
 
-  // Adaya Kesin Dönüş Fonksiyonu
+  // Adaya Dönüş
   function adayaDon() {
-    console.log('>> Adaya dönüş süreci başlatıldı...');
+    console.log('>> Adaya dönülüyor...');
 
-    setTimeout(() => {
-      komutGonder('/skyblock');
-    }, 2000);
-
-    setTimeout(() => {
-      console.log('>> /is home gönderiliyor...');
-      komutGonder('/is home');
-    }, 14000);
-
-    setTimeout(() => {
-      console.log('>> /home emniyeti gönderiliyor...');
-      komutGonder('/home');
-    }, 20000);
+    setTimeout(() => komutGonder('/skyblock'), 3000);
+    setTimeout(() => komutGonder('/is home'), 12000);
+    setTimeout(() => komutGonder('/home'), 18000);
   }
 
-  // Sunucu mesajlarını dinle
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
@@ -155,11 +144,10 @@ function botuBaslat() {
     if (
       mesaj.includes('Lobiye') ||
       mesaj.includes('aktarıldınız') ||
-      mesaj.includes('Aktarılıyorsunuz') ||
       mesaj.includes('yeniden başlatılıyor') ||
       mesaj.includes('Lütfen giriş komutunu kullanın')
     ) {
-      console.log('>> Bot adadan ayrıldı/lobiye düştü! Adaya dönülüyor...');
+      console.log('>> Lobi/Liman tespiti yapıldı! Adaya dönülüyor...');
       adayaDon();
     }
   });
@@ -170,52 +158,26 @@ function botuBaslat() {
     if (akisBasladi) return;
     akisBasladi = true;
 
-    console.log('>> Bot oyuna bağlandı. Akış başlatılıyor...');
+    console.log('>> Bot oyuna bağlandı.');
 
-    // 1. ADIM: Login
-    setTimeout(() => {
-      komutGonder('/login efe43802');
-      console.log('>> [1/3] /login gönderildi.');
-    }, 4000);
+    // Giriş ve Adaya Işınlanma
+    setTimeout(() => komutGonder('/login efe43802'), 4000);
+    setTimeout(() => adayaDon(), 8000);
 
-    // 2. ADIM: Adaya Geçiş
-    setTimeout(() => {
-      adayaDon();
-    }, 8000);
+    // İlk Girişte Minyon Besleme
+    setTimeout(() => minyonuBesle(), 25000);
 
-    // AFK Hareket Döngüsü (Zıplama + El Sallama - 30 saniyede bir)
-    if (afkInterval) clearInterval(afkInterval);
-    afkInterval = setInterval(() => {
-      if (bot && bot.entity) {
-        console.log('>> AFK hareketi yapılıyor (Zıplama + El Sallama)...');
-        
-        bot.setControlState('jump', true);
-        try { bot.swingArm('right'); } catch (e) {}
-
-        setTimeout(() => {
-          if (bot && bot.entity) {
-            bot.setControlState('jump', false);
-          }
-        }, 500);
-      }
-    }, 30000);
-
-    // İlk girişte 30. saniyede minyon beslemesi
-    setTimeout(() => {
-      minyonuBesle();
-    }, 30000);
-
-    // 15 dakikalık periyodik adaya dönüş kontrolü
+    // 15 Dakikada bir /home Emniyeti
     if (kontrolInterval) clearInterval(kontrolInterval);
     kontrolInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> Periyodik adaya dönüş emniyeti çalışıyor...');
+        console.log('>> Periyodik kontrol: Adaya /home çekiliyor...');
         komutGonder('/is home');
-        setTimeout(() => komutGonder('/home'), 5000);
+        setTimeout(() => komutGonder('/home'), 4000);
       }
     }, 15 * 60 * 1000);
 
-    // 30 dakikada bir Minyon Besleme
+    // 30 Dakikada bir Minyon Besleme
     if (minyonInterval) clearInterval(minyonInterval);
     minyonInterval = setInterval(() => {
       if (bot && bot.entity) {
@@ -225,12 +187,12 @@ function botuBaslat() {
   });
 
   bot.on('kicked', (reason) => {
-    console.log('Bot sunucudan atıldı:', reason);
+    console.log('Bot sunucudan atıldı! SEBEP:', JSON.stringify(reason));
     sifirlaVeYenidenBaslat();
   });
 
   bot.on('end', () => {
-    console.log('Bağlantı koptu.');
+    console.log('Bağlantı koptu (end).');
     sifirlaVeYenidenBaslat();
   });
 
