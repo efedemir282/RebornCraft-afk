@@ -1,19 +1,19 @@
 const mineflayer = require('mineflayer');
 const express = require('express');
 
-// --- 1. RENDER PORT SİSTEMİ ---
+// --- 1. RENDER PORT VE WEB SUNUCUSU (503 HATASINI ENGELLEMEK İÇİN) ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.status(200).send('Bot 7/24 Aktif!');
+  res.status(200).send('Nether Minyon Botu 7/24 Aktif!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[RENDER SİSTEMİ] Web sunucusu ${PORT} portunda aktif.`);
+  console.log(`[Express] Web sunucusu ${PORT} portunda başarıyla başlatıldı.`);
 });
 
-// --- GLOBAL ÇÖKME KORUMALARI ---
+// --- 2. GLOBAL ÇÖKME KORUMALARI ---
 process.on('uncaughtException', (err) => {
   console.log('[Sistem Uyarısı] Hata:', err.message);
 });
@@ -22,18 +22,17 @@ process.on('unhandledRejection', (reason) => {
   console.log('[Sistem Uyarısı] Rejection:', reason);
 });
 
+let bot = null;
 let afkInterval = null;
-let kontrolInterval = null;
 let minyonInterval = null;
-let baglantiDenedi = false;
+let kontrolInterval = null;
+let isConnecting = false;
 
 function botuBaslat() {
-  if (baglantiDenedi) return;
+  if (isConnecting) return;
+  isConnecting = true;
 
-  console.log('Sunucuya bağlanılıyor...');
-  baglantiDenedi = true;
-
-  let bot = null;
+  console.log('RebornCraft sunucusuna bağlanılıyor...');
 
   try {
     bot = mineflayer.createBot({
@@ -43,7 +42,7 @@ function botuBaslat() {
       version: '1.21.6',
       viewDistance: 'tiny',
       checkTimeoutInterval: 120 * 1000,
-      physicsEnabled: true // Hareket için fizik açık
+      physicsEnabled: true
     });
   } catch (err) {
     console.log('Bot başlatma hatası:', err.message);
@@ -63,11 +62,11 @@ function botuBaslat() {
 
   function sifirlaVeYenidenBaslat() {
     if (afkInterval) clearInterval(afkInterval);
-    if (kontrolInterval) clearInterval(kontrolInterval);
     if (minyonInterval) clearInterval(minyonInterval);
+    if (kontrolInterval) clearInterval(kontrolInterval);
 
-    baglantiDenedi = false;
-    
+    isConnecting = false;
+
     if (bot) {
       try { bot.quit(); } catch (e) {}
       bot = null;
@@ -77,7 +76,7 @@ function botuBaslat() {
     setTimeout(botuBaslat, 10000);
   }
 
-  // Minyon Besleme Fonksiyonu
+  // NETHER MİNYON BESLEME FONKSİYONU
   function minyonuBesle() {
     if (!bot || !bot.entity) return;
 
@@ -92,19 +91,19 @@ function botuBaslat() {
     });
 
     if (!minyon) {
-      console.log('>> [MİNYON]: Yakında CEHENNEM minyonu bulunamadı!');
+      console.log('>> [NETHER MİNYON]: Yakında CEHENNEM minyonu bulunamadı!');
       return;
     }
 
-    console.log('>> [MİNYON]: CEHENNEM Minyonuna sağ tıklanıyor...');
+    console.log('>> [NETHER MİNYON]: Minyon tespit edildi, sağ tıklanıyor...');
 
     const windowHandler = async (window) => {
       try {
-        console.log(`>> [MİNYON]: Menü açıldı -> ${window.title}`);
+        console.log(`>> [NETHER MİNYON]: Menü açıldı -> ${window.title}`);
 
         setTimeout(async () => {
           await bot.clickWindow(36, 0, 0);
-          console.log('>> [MİNYON]: Altın elmaya basıldı, minyon beslendi! 🍏');
+          console.log('>> [NETHER MİNYON]: Altın elmaya basıldı, minyon beslendi! 🍏');
 
           setTimeout(() => {
             bot.closeWindow(window);
@@ -112,7 +111,7 @@ function botuBaslat() {
         }, 1500);
 
       } catch (err) {
-        console.log('>> [MİNYON]: Besleme hatası:', err.message);
+        console.log('>> [NETHER MİNYON]: Besleme hatası:', err.message);
       }
     };
 
@@ -122,19 +121,18 @@ function botuBaslat() {
       bot.activateEntity(minyon);
     } catch (err) {
       bot.removeListener('windowOpen', windowHandler);
-      console.log('>> [MİNYON]: Minyona tıklanamadı:', err.message);
+      console.log('>> [NETHER MİNYON]: Minyona tıklanamadı:', err.message);
     }
   }
 
-  // Adaya Dönüş
-  function adayaDon() {
-    console.log('>> Adaya dönülüyor...');
-
-    setTimeout(() => komutGonder('/skyblock'), 3000);
-    setTimeout(() => komutGonder('/is home'), 12000);
-    setTimeout(() => komutGonder('/home'), 18000);
+  // NETHER HOME DÖNÜŞ FONKSİYONU
+  function netherHomeDon() {
+    console.log('>> Nether evine (/home) ışınlanılıyor...');
+    setTimeout(() => komutGonder('/skyblock'), 2000);
+    setTimeout(() => komutGonder('/home'), 8000);
   }
 
+  // SUNUCU CHAT LOGLARI VE LOBİ KONTROLÜ
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
@@ -145,28 +143,34 @@ function botuBaslat() {
       mesaj.includes('yeniden başlatılıyor') ||
       mesaj.includes('Lütfen giriş komutunu kullanın')
     ) {
-      console.log('>> Lobi/Liman tespiti yapıldı! Adaya dönülüyor...');
-      adayaDon();
+      console.log('>> Lobiye düştü! Tekrar Nether evine dönülüyor...');
+      netherHomeDon();
     }
   });
 
-  let akisBasladi = false;
+  let spawnOldu = false;
 
   bot.on('spawn', () => {
-    if (akisBasladi) return;
-    akisBasladi = true;
+    if (spawnOldu) return;
+    spawnOldu = true;
 
     console.log('>> Bot oyuna bağlandı.');
 
-    // Giriş ve Adaya Işınlanma
-    setTimeout(() => komutGonder('/login efe43802'), 4000);
-    setTimeout(() => adayaDon(), 8000);
+    // 1. Giriş Yap ve Nether Evine Işınlan
+    setTimeout(() => {
+      komutGonder('/login efe43802');
+      console.log('>> [1/2] /login gönderildi.');
+    }, 4000);
 
-    // BİZİ 7/24 OYUNDA TUTAN AFK HAREKET DÖNGÜSÜ (Her 25 Saniyede Bir Zıplama + Kol Sallama)
+    setTimeout(() => {
+      komutGonder('/home');
+      console.log('>> [2/2] Nether evine (/home) çekildi.');
+    }, 10000);
+
+    // 2. AFK Zıplama & Kol Sallama (Her 25 saniyede bir)
     if (afkInterval) clearInterval(afkInterval);
     afkInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> [AFK KORUMA]: Zıplama ve kol sallama yapılıyor...');
         bot.setControlState('jump', true);
         try { bot.swingArm('right'); } catch (e) {}
 
@@ -178,30 +182,31 @@ function botuBaslat() {
       }
     }, 25000);
 
-    // İlk Girişte Minyon Besleme
-    setTimeout(() => minyonuBesle(), 25000);
+    // 3. İlk Minyon Besleme (Girişten 25 saniye sonra)
+    setTimeout(() => {
+      minyonuBesle();
+    }, 25000);
 
-    // 15 Dakikada bir /home Emniyeti
-    if (kontrolInterval) clearInterval(kontrolInterval);
-    kontrolInterval = setInterval(() => {
-      if (bot && bot.entity) {
-        console.log('>> Periyodik kontrol: Adaya /home çekiliyor...');
-        komutGonder('/is home');
-        setTimeout(() => komutGonder('/home'), 4000);
-      }
-    }, 15 * 60 * 1000);
-
-    // 30 Dakikada bir Minyon Besleme
+    // 4. Periyodik Minyon Besleme (Her 30 dakikada bir)
     if (minyonInterval) clearInterval(minyonInterval);
     minyonInterval = setInterval(() => {
       if (bot && bot.entity) {
         minyonuBesle();
       }
     }, 30 * 60 * 1000);
+
+    // 5. Periyodik Nether /home Emniyeti (Her 15 dakikada bir)
+    if (kontrolInterval) clearInterval(kontrolInterval);
+    kontrolInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        console.log('>> Periyodik kontrol: /home çekiliyor...');
+        komutGonder('/home');
+      }
+    }, 15 * 60 * 1000);
   });
 
   bot.on('kicked', (reason) => {
-    console.log('Bot sunucudan atıldı! SEBEP:', JSON.stringify(reason));
+    console.log('Bot atıldı! Sebep:', JSON.stringify(reason));
     sifirlaVeYenidenBaslat();
   });
 
