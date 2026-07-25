@@ -12,6 +12,7 @@ app.listen(PORT, () => {
   console.log('Web sunucusu hazır.');
 });
 
+let ziplamaInterval = null;
 let kontrolInterval = null;
 let minyonInterval = null;
 let baglantiDenedi = false;
@@ -29,7 +30,7 @@ function botuBaslat() {
     version: '1.21.6',
     viewDistance: 'tiny',
     checkTimeoutInterval: 120 * 1000,
-    physicsEnabled: true
+    physicsEnabled: true // Zıplayabilmesi için fizik motoru aktif
   });
 
   function komutGonder(komut) {
@@ -145,7 +146,19 @@ function botuBaslat() {
       adayaDon();
     }, 8000);
 
-    // İlk girişte 25. saniyede bir defa minyonu beslemeyi dene
+    // 40 saniyede bir AFK Zıplaması
+    if (ziplamaInterval) clearInterval(ziplamaInterval);
+    ziplamaInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        console.log('>> AFK zıplaması yapılıyor...');
+        bot.setControlState('jump', true);
+        setTimeout(() => {
+          if (bot && bot.entity) bot.setControlState('jump', false);
+        }, 500);
+      }
+    }, 40000);
+
+    // İlk girişte 25. saniyede minyon beslemesi
     setTimeout(() => {
       minyonuBesle();
     }, 25000);
@@ -159,7 +172,7 @@ function botuBaslat() {
       }
     }, 15 * 60 * 1000);
 
-    // Her 30 dakikada bir otomatik Minyon Besleme
+    // 30 dakikada bir Minyon Besleme
     if (minyonInterval) clearInterval(minyonInterval);
     minyonInterval = setInterval(() => {
       if (bot && bot.entity) {
@@ -176,6 +189,7 @@ function botuBaslat() {
     console.log('Bağlantı koptu. 15 saniye sonra tekrar deneniyor...');
     baglantiDenedi = false;
     akisBasladi = false;
+    if (ziplamaInterval) clearInterval(ziplamaInterval);
     if (kontrolInterval) clearInterval(kontrolInterval);
     if (minyonInterval) clearInterval(minyonInterval);
     setTimeout(botuBaslat, 15000);
