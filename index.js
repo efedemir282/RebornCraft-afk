@@ -13,7 +13,6 @@ app.listen(PORT, () => {
 });
 
 // --- GLOBAL ÇÖKME KORUMALARI ---
-// Kod içinde beklenmeyen bir hata oluşsa bile uygulamanın kapanmasını engeller
 process.on('uncaughtException', (err) => {
   console.log('[Sistem Uyarısı] Yakalanmayan Hata:', err.message);
 });
@@ -22,7 +21,7 @@ process.on('unhandledRejection', (reason, promise) => {
   console.log('[Sistem Uyarısı] Yakalanmayan Rejection:', reason);
 });
 
-let ziplamaInterval = null;
+let afkInterval = null;
 let kontrolInterval = null;
 let minyonInterval = null;
 let baglantiDenedi = false;
@@ -62,7 +61,7 @@ function botuBaslat() {
   }
 
   function sifirlaVeYenidenBaslat() {
-    if (ziplamaInterval) clearInterval(ziplamaInterval);
+    if (afkInterval) clearInterval(afkInterval);
     if (kontrolInterval) clearInterval(kontrolInterval);
     if (minyonInterval) clearInterval(minyonInterval);
 
@@ -73,29 +72,38 @@ function botuBaslat() {
       bot = null;
     }
 
-    console.log('10 saniye sonra bağlantı tekrar denenecek...');
-    setTimeout(botuBaslat, 10000);
+    console.log('15 saniye sonra bağlantı tekrar denenecek...');
+    setTimeout(botuBaslat, 15000);
   }
 
-  // Minyon Besleme Fonksiyonu
+  // Özel Minyonu İsmine Göre Bulma ve Besleme
   function minyonuBesle() {
     if (!bot || !bot.entity) return;
 
-    const minyon = bot.nearestEntity((e) => 
-      e.position.distanceTo(bot.entity.position) < 4 && e !== bot.entity
-    );
+    // Etrafta ismi "CEHENNEM" içeren veya en yakın varlığı bul
+    const minyon = bot.nearestEntity((e) => {
+      const mesafe = e.position.distanceTo(bot.entity.position) < 4;
+      if (!mesafe || e === bot.entity) return false;
+
+      // Özel İsim Kontrolü (Hologram / Armor Stand)
+      const customName = e.customName ? JSON.stringify(e.customName) : '';
+      const isMinyonName = customName.toUpperCase().includes('CEHENNEM');
+
+      return isMinyonName || e.type === 'object' || e.name === 'armor_stand';
+    });
 
     if (!minyon) {
-      console.log('>> [MİNYON]: Yakında beslenecek minyon bulunamadı!');
+      console.log('>> [MİNYON]: Yakında CEHENNEM minyonu bulunamadı!');
       return;
     }
 
-    console.log('>> [MİNYON]: Minyona sağ tıklanıyor...');
+    console.log('>> [MİNYON]: CEHENNEM Minyonu tespit edildi, sağ tıklanıyor...');
 
     const windowHandler = async (window) => {
       try {
         console.log(`>> [MİNYON]: Menü açıldı -> ${window.title}`);
 
+        // Slot 36 (Altın Elma)
         setTimeout(async () => {
           await bot.clickWindow(36, 0, 0);
           console.log('>> [MİNYON]: Altın elmaya basıldı, minyon beslendi! 🍏');
@@ -106,7 +114,7 @@ function botuBaslat() {
         }, 1500);
 
       } catch (err) {
-        console.log('>> [MİNYON]: Besleme sırasında hata:', err.message);
+        console.log('>> [MİNYON]: Besleme hatası:', err.message);
       }
     };
 
@@ -120,26 +128,23 @@ function botuBaslat() {
     }
   }
 
-  // Paket Hatalarını Yakala
-  bot._client?.on('error', (err) => {
-    if (
-      err.name === 'PartialReadError' || 
-      err.message?.includes('Particle') || 
-      err.message?.includes('timed out')
-    ) return;
-    console.log('Paket Uyarısı:', err.message);
-  });
-
-  // Adaya Dönüş Fonksiyonu
+  // Adaya Kesin Dönüş Fonksiyonu
   function adayaDon() {
-    console.log('>> Adaya geri dönülüyor (/skyblock -> /home)...');
+    console.log('>> Adaya dönüş süreci başlatıldı...');
+
     setTimeout(() => {
       komutGonder('/skyblock');
     }, 2000);
 
     setTimeout(() => {
+      console.log('>> /is home gönderiliyor...');
+      komutGonder('/is home');
+    }, 14000);
+
+    setTimeout(() => {
+      console.log('>> /home emniyeti gönderiliyor...');
       komutGonder('/home');
-    }, 12000);
+    }, 20000);
   }
 
   // Sunucu mesajlarını dinle
@@ -154,7 +159,7 @@ function botuBaslat() {
       mesaj.includes('yeniden başlatılıyor') ||
       mesaj.includes('Lütfen giriş komutunu kullanın')
     ) {
-      console.log('>> Bot adadan ayrıldı veya lobiye düştü! Tekrar adaya dönülüyor...');
+      console.log('>> Bot adadan ayrıldı/lobiye düştü! Adaya dönülüyor...');
       adayaDon();
     }
   });
@@ -165,7 +170,7 @@ function botuBaslat() {
     if (akisBasladi) return;
     akisBasladi = true;
 
-    console.log('>> Bot oyuna bağlandı. Komut akışı başlatılıyor...');
+    console.log('>> Bot oyuna bağlandı. Akış başlatılıyor...');
 
     // 1. ADIM: Login
     setTimeout(() => {
@@ -173,45 +178,40 @@ function botuBaslat() {
       console.log('>> [1/3] /login gönderildi.');
     }, 4000);
 
-    // 2. ve 3. ADIM: Skyblock ve Home
+    // 2. ADIM: Adaya Geçiş
     setTimeout(() => {
       adayaDon();
     }, 8000);
 
-    // AFK Zıplaması + Kafa Döndürme (30 saniyede bir)
-    if (ziplamaInterval) clearInterval(ziplamaInterval);
-    ziplamaInterval = setInterval(() => {
+    // AFK Hareket Döngüsü (Zıplama + El Sallama - 30 saniyede bir)
+    if (afkInterval) clearInterval(afkInterval);
+    afkInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> AFK hareketi yapılıyor (Zıplama + Bakış)...');
+        console.log('>> AFK hareketi yapılıyor (Zıplama + El Sallama)...');
         
-        // Zıpla
         bot.setControlState('jump', true);
-        
-        // Hafifçe bakış açısını değiştir (Anti-AFK bypass)
-        const currentYaw = bot.entity.yaw;
-        const currentPitch = bot.entity.pitch;
-        bot.look(currentYaw + 0.2, currentPitch, true);
+        try { bot.swingArm('right'); } catch (e) {}
 
         setTimeout(() => {
           if (bot && bot.entity) {
             bot.setControlState('jump', false);
-            bot.look(currentYaw, currentPitch, true); // Eski açısına geri dön
           }
         }, 500);
       }
     }, 30000);
 
-    // İlk girişte 25. saniyede minyon beslemesi
+    // İlk girişte 30. saniyede minyon beslemesi
     setTimeout(() => {
       minyonuBesle();
-    }, 25000);
+    }, 30000);
 
-    // 15 dakikalık periyodik /home emniyeti
+    // 15 dakikalık periyodik adaya dönüş kontrolü
     if (kontrolInterval) clearInterval(kontrolInterval);
     kontrolInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> Periyodik kontrol: Adaya /home çekiliyor...');
-        komutGonder('/home');
+        console.log('>> Periyodik adaya dönüş emniyeti çalışıyor...');
+        komutGonder('/is home');
+        setTimeout(() => komutGonder('/home'), 5000);
       }
     }, 15 * 60 * 1000);
 
