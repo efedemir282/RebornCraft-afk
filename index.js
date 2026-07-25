@@ -1,15 +1,18 @@
 const mineflayer = require('mineflayer');
 const express = require('express');
 
+// --- 1. RENDER PORT SİSTEMİ (EN ÜSTE ALINDI) ---
 const app = express();
+// Render PORT değişkenini kendi otomatik atar, yoksa 3000 kullanır
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Bot aktif!');
+  res.status(200).send('Bot 7/24 Aktif ve Çalışıyor!');
 });
 
-app.listen(PORT, () => {
-  console.log('Web sunucusu hazır.');
+// Render'a portun açık olduğunu kanıtlamak için 0.0.0.0 IP'sinden dinliyoruz
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[RENDER SİSTEMİ] Web sunucusu ${PORT} portunda başarıyla başlatıldı.`);
 });
 
 // --- GLOBAL ÇÖKME KORUMALARI ---
@@ -41,7 +44,7 @@ function botuBaslat() {
       version: '1.21.6',
       viewDistance: 'tiny',
       checkTimeoutInterval: 120 * 1000,
-      physicsEnabled: false // RAM kullanımını sıfıra indirmek için fiziği kapattık
+      physicsEnabled: false // RAM koruması
     });
   } catch (err) {
     console.log('Bot başlatma hatası:', err.message);
@@ -49,7 +52,6 @@ function botuBaslat() {
     return;
   }
 
-  // Hafıza Sızıntısını (RAM Dolmasını) Önlemek İçin Dünyayı Kaydetmeyi Kapat
   if (bot.world) {
     bot.world.cachingAllowed = false;
   }
@@ -98,7 +100,7 @@ function botuBaslat() {
       return;
     }
 
-    console.log('>> [MİNYON]: CEHENNEM Minyonu tespit edildi, sağ tıklanıyor...');
+    console.log('>> [MİNYON]: CEHENNEM Minyonuna sağ tıklanıyor...');
 
     const windowHandler = async (window) => {
       try {
