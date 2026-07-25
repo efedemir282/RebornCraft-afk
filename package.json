@@ -1,7 +1,7 @@
 {
-  "name": "reborncraft-nether-bot",
+  "name": "reborncraft-afk-bot",
   "version": "1.0.0",
-  "description": "RebornCraft Nether AFK ve Minyon Besleme Botu",
+  "description": "RebornCraft Minion AFK Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,8 +9,5 @@
   "dependencies": {
     "express": "^4.19.2",
     "mineflayer": "^4.20.1"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
