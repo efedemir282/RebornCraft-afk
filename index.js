@@ -12,6 +12,16 @@ app.listen(PORT, () => {
   console.log('Web sunucusu hazır.');
 });
 
+// --- GLOBAL ÇÖKME KORUMALARI ---
+// Kod içinde beklenmeyen bir hata oluşsa bile uygulamanın kapanmasını engeller
+process.on('uncaughtException', (err) => {
+  console.log('[Sistem Uyarısı] Yakalanmayan Hata:', err.message);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.log('[Sistem Uyarısı] Yakalanmayan Rejection:', reason);
+});
+
 let ziplamaInterval = null;
 let kontrolInterval = null;
 let minyonInterval = null;
@@ -23,15 +33,23 @@ function botuBaslat() {
   console.log('Sunucuya bağlanılıyor...');
   baglantiDenedi = true;
 
-  const bot = mineflayer.createBot({
-    host: 'play.reborncraft.pw',
-    port: 25565,
-    username: 'xBetray_31_AFK',
-    version: '1.21.6',
-    viewDistance: 'tiny',
-    checkTimeoutInterval: 120 * 1000,
-    physicsEnabled: true // Zıplayabilmesi için fizik motoru aktif
-  });
+  let bot = null;
+
+  try {
+    bot = mineflayer.createBot({
+      host: 'play.reborncraft.pw',
+      port: 25565,
+      username: 'xBetray_31_AFK',
+      version: '1.21.6',
+      viewDistance: 'tiny',
+      checkTimeoutInterval: 120 * 1000,
+      physicsEnabled: true
+    });
+  } catch (err) {
+    console.log('Bot oluşturulurken hata:', err.message);
+    sifirlaVeYenidenBaslat();
+    return;
+  }
 
   function komutGonder(komut) {
     if (bot && bot._client && typeof bot.chat === 'function') {
@@ -43,11 +61,26 @@ function botuBaslat() {
     }
   }
 
-  // Minyonu Besleme Fonksiyonu
+  function sifirlaVeYenidenBaslat() {
+    if (ziplamaInterval) clearInterval(ziplamaInterval);
+    if (kontrolInterval) clearInterval(kontrolInterval);
+    if (minyonInterval) clearInterval(minyonInterval);
+
+    baglantiDenedi = false;
+    
+    if (bot) {
+      try { bot.quit(); } catch (e) {}
+      bot = null;
+    }
+
+    console.log('10 saniye sonra bağlantı tekrar denenecek...');
+    setTimeout(botuBaslat, 10000);
+  }
+
+  // Minyon Besleme Fonksiyonu
   function minyonuBesle() {
     if (!bot || !bot.entity) return;
 
-    // Etraftaki en yakın minyonu (armor stand veya entity) bul
     const minyon = bot.nearestEntity((e) => 
       e.position.distanceTo(bot.entity.position) < 4 && e !== bot.entity
     );
@@ -63,7 +96,6 @@ function botuBaslat() {
       try {
         console.log(`>> [MİNYON]: Menü açıldı -> ${window.title}`);
 
-        // Altın Elma 36. slotta (5. satır 1. sütun)
         setTimeout(async () => {
           await bot.clickWindow(36, 0, 0);
           console.log('>> [MİNYON]: Altın elmaya basıldı, minyon beslendi! 🍏');
@@ -88,7 +120,7 @@ function botuBaslat() {
     }
   }
 
-  // Paket ve Zaman Aşımı Uyarılarını Yakala
+  // Paket Hatalarını Yakala
   bot._client?.on('error', (err) => {
     if (
       err.name === 'PartialReadError' || 
@@ -146,17 +178,28 @@ function botuBaslat() {
       adayaDon();
     }, 8000);
 
-    // 40 saniyede bir AFK Zıplaması
+    // AFK Zıplaması + Kafa Döndürme (30 saniyede bir)
     if (ziplamaInterval) clearInterval(ziplamaInterval);
     ziplamaInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> AFK zıplaması yapılıyor...');
+        console.log('>> AFK hareketi yapılıyor (Zıplama + Bakış)...');
+        
+        // Zıpla
         bot.setControlState('jump', true);
+        
+        // Hafifçe bakış açısını değiştir (Anti-AFK bypass)
+        const currentYaw = bot.entity.yaw;
+        const currentPitch = bot.entity.pitch;
+        bot.look(currentYaw + 0.2, currentPitch, true);
+
         setTimeout(() => {
-          if (bot && bot.entity) bot.setControlState('jump', false);
+          if (bot && bot.entity) {
+            bot.setControlState('jump', false);
+            bot.look(currentYaw, currentPitch, true); // Eski açısına geri dön
+          }
         }, 500);
       }
-    }, 40000);
+    }, 30000);
 
     // İlk girişte 25. saniyede minyon beslemesi
     setTimeout(() => {
@@ -183,23 +226,18 @@ function botuBaslat() {
 
   bot.on('kicked', (reason) => {
     console.log('Bot sunucudan atıldı:', reason);
+    sifirlaVeYenidenBaslat();
   });
 
   bot.on('end', () => {
-    console.log('Bağlantı koptu. 15 saniye sonra tekrar deneniyor...');
-    baglantiDenedi = false;
-    akisBasladi = false;
-    if (ziplamaInterval) clearInterval(ziplamaInterval);
-    if (kontrolInterval) clearInterval(kontrolInterval);
-    if (minyonInterval) clearInterval(minyonInterval);
-    setTimeout(botuBaslat, 15000);
+    console.log('Bağlantı koptu.');
+    sifirlaVeYenidenBaslat();
   });
 
   bot.on('error', (err) => {
     if (err.name === 'PartialReadError' || err.message?.includes('timed out')) return;
     console.log('Hata oluştu:', err.message);
-    baglantiDenedi = false;
-    akisBasladi = false;
+    sifirlaVeYenidenBaslat();
   });
 }
 
