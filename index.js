@@ -29,6 +29,7 @@ const CONFIG = {
 let bot = null;
 let jumpInterval = null;
 let homeInterval = null;
+let minionInterval = null;
 let isConnecting = false;
 let tpaCooldown = false;
 let isDropping = false;
@@ -43,6 +44,10 @@ function tumZamanlayicilariTemizle() {
   if (homeInterval) {
     clearInterval(homeInterval);
     homeInterval = null;
+  }
+  if (minionInterval) {
+    clearInterval(minionInterval);
+    minionInterval = null;
   }
 }
 
@@ -196,7 +201,7 @@ function botuBaslat() {
       // Ada Home
       setTimeout(() => komutGonder('/home'), 16000);
 
-      // AFK Zıplama
+      // AFK Zıplama (30 saniyede bir)
       jumpInterval = setInterval(() => {
         if (bot && bot.entity) {
           bot.setControlState('jump', true);
@@ -204,15 +209,59 @@ function botuBaslat() {
         }
       }, 30000);
 
-      // Periyodik Home
+      // Periyodik Home (10 dakikada bir)
       homeInterval = setInterval(() => {
         if (bot && bot.entity) komutGonder('/home');
       }, 10 * 60 * 1000);
+
+      // --- MİNYON BESLEME DÖNGÜSÜ (30 DAKİKADA BİR) ---
+      minionInterval = setInterval(async () => {
+        if (!bot || !bot.entity) return;
+
+        const minion = bot.nearestEntity(e => 
+          (e.type === 'object' || e.type === 'mob' || e.type === 'player' || e.name === 'armor_stand') &&
+          e.id !== bot.entity.id
+        );
+
+        if (minion && bot.entity.position.distanceTo(minion.position) < 5) {
+          try {
+            console.log('[BOT]: 30 dk doldu, minyona yaklaşılıyor ve besleme menüsü açılıyor...');
+            await bot.lookAt(minion.position.offset(0, 1, 0));
+            bot.swingArm('right');
+            bot.activateEntity(minion);
+          } catch (err) {
+            console.log('[HATA]: Minyon etkileşim hatası:', err.message);
+          }
+        } else {
+          console.log('[BOT]: Yakında beslenecek minyon bulunamadı.');
+        }
+      }, 30 * 60 * 1000);
     }
   });
 
   // ==========================================
-  // 6. FISILTI VE MESAJ DİNLENMESİ
+  // 6. MİNYON MENÜSÜ AÇILDIĞINDA ALTIN ELMAYI TIKLAMA
+  // ==========================================
+  bot.on('windowOpen', async (window) => {
+    console.log(`[BOT]: Menü açıldı -> ${window.title}`);
+    const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu (5. satır 1. sütun)
+
+    setTimeout(async () => {
+      try {
+        await bot.clickWindow(GOLDEN_APPLE_SLOT, 0, 0);
+        console.log('[BOT]: Minyon besleme butonuna (Altın Elma - Slot 36) tıklandı!');
+        
+        setTimeout(() => {
+          if (bot) bot.closeWindow(window);
+        }, 1000);
+      } catch (err) {
+        console.log('[HATA]: Menü tıklama hatası:', err.message);
+      }
+    }, 1200);
+  });
+
+  // ==========================================
+  // 7. FISILTI VE MESAJ DİNLENMESİ
   // ==========================================
   
   // KATMAN 1: Özel Fısıltı Modülü
