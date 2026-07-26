@@ -19,7 +19,7 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.21.6' // Skyblock alt sunucusunun zorunlu kıldığı minimum sürüm
+  version: '1.21.6'
 };
 
 let bot;
@@ -36,7 +36,7 @@ function createBot() {
     port: CONFIG.port,
     username: CONFIG.username,
     version: CONFIG.version,
-    viewDistance: 'tiny',
+    viewDistance: 4, // 'tiny' metni yerine sayısal chunk değeri verildi (FastDecoder hatasını çözer)
     checkTimeoutInterval: 30000,
     hideErrors: true
   });
@@ -44,11 +44,16 @@ function createBot() {
   // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
   bot._client.on('error', (err) => {
     if (err && (err.name === 'PartialReadError' || (err.message && err.message.includes('Particle')))) {
-      return; // Protodef paket uyuşmazlığı hatalarını konsola yazma
+      return;
     }
   });
 
-  // --- OYUNA GİRİŞ AKIŞI ---
+  // --- OYUNA GİRİŞ VE AYARLARIN DÜZELTİLMESİ ---
+  bot.on('login', () => {
+    bot.settings.viewDistance = 4;
+    bot.settings.colorsEnabled = true;
+  });
+
   bot.on('spawn', () => {
     console.log('>>> SUNUCUYA/BOYUTA GİRİŞ YAPILDI <<<');
     
