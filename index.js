@@ -94,11 +94,8 @@ async function noktaliKomutCalistir(komutMetni) {
 
   try {
     console.log(`[BOT]: Noktalı komut algılandı: "${komutMetni}". Doğrudan chate yazılıyor...`);
-    
-    // Doğrudan komutu gönderir
     komutGonder(komutMetni);
     console.log(`[BOT]: Genel chate yazıldı/komut çalıştırıldı: "${komutMetni}"`);
-
   } catch (err) {
     console.log('[HATA]: Dinamik komut hatası:', err.message);
   } finally {
@@ -112,10 +109,7 @@ async function noktaliKomutCalistir(komutMetni) {
 async function envanteriYereBosalt() {
   if (!bot || !bot.inventory) return;
 
-  if (isDropping) {
-    return;
-  }
-
+  if (isDropping) return;
   isDropping = true;
 
   try {
@@ -129,7 +123,6 @@ async function envanteriYereBosalt() {
 
     while (true) {
       const currentItems = bot.inventory.items().filter(item => !skippedSlots.has(item.slot));
-
       if (currentItems.length === 0) break;
 
       const item = currentItems[0];
@@ -139,7 +132,6 @@ async function envanteriYereBosalt() {
         if (bot.entity) {
           await bot.look(bot.entity.yaw, 0, true);
         }
-
         await bot.tossStack(item);
         droppedCount++;
         console.log(`[BOT]: ${item.displayName || item.name} başarıyla atıldı.`);
@@ -222,26 +214,41 @@ function botuBaslat() {
         if (bot && bot.entity) komutGonder('/home');
       }, 10 * 60 * 1000);
 
-      // --- MİNYON BESLEME DÖNGÜSÜ (30 DAKİKADA BİR) ---
+      // --- İYİLEŞTİRİLMİŞ MİNYON BESLEME DÖNGÜSÜ (30 DAKİKADA BİR) ---
       minionInterval = setInterval(async () => {
         if (!bot || !bot.entity) return;
 
+        // Açık kalmış eski menü varsa zorla kapat
+        if (bot.currentWindow) {
+          try { bot.closeWindow(bot.currentWindow); } catch (e) {}
+          await bekle(500);
+        }
+
+        // Yalnızca Zırh Askısı (Armor Stand / Minyon) olan entity'leri ara
         const minion = bot.nearestEntity(e => 
-          (e.type === 'object' || e.type === 'mob' || e.type === 'player' || e.name === 'armor_stand') &&
+          (e.name === 'armor_stand' || e.type === 'object' || e.type === 'mob') &&
           e.id !== bot.entity.id
         );
 
-        if (minion && bot.entity.position.distanceTo(minion.position) < 5) {
-          try {
-            console.log('[BOT]: 30 dk doldu, minyona yaklaşılıyor ve besleme menüsü açılıyor...');
-            await bot.lookAt(minion.position.offset(0, 1, 0));
-            bot.swingArm('right');
-            bot.activateEntity(minion);
-          } catch (err) {
-            console.log('[HATA]: Minyon etkileşim hatası:', err.message);
+        if (minion) {
+          const mesafe = bot.entity.position.distanceTo(minion.position);
+          console.log(`[BOT]: Minyon/Zırh askısı tespit edildi. Mesafe: ${mesafe.toFixed(2)} blok.`);
+
+          if (mesafe <= 5) {
+            try {
+              console.log('[BOT]: Minyona bakılıyor ve besleme menüsü açılıyor...');
+              await bot.lookAt(minion.position.offset(0, 1.2, 0));
+              await bekle(300);
+              bot.swingArm('right');
+              bot.activateEntity(minion);
+            } catch (err) {
+              console.log('[HATA]: Minyon etkileşim hatası:', err.message);
+            }
+          } else {
+            console.log('[BOT]: Minyon bulundu ancak 5 bloktan uzakta! (/home ile yakına çekilmeli)');
           }
         } else {
-          console.log('[BOT]: Yakında beslenecek minyon bulunamadı.');
+          console.log('[BOT]: Yakında beslenecek minyon (zırh askısı) bulunamadı.');
         }
       }, 30 * 60 * 1000);
     }
@@ -251,16 +258,19 @@ function botuBaslat() {
   // 6. MİNYON MENÜSÜ AÇILDIĞINDA ALTIN ELMAYI TIKLAMA
   // ==========================================
   bot.on('windowOpen', async (window) => {
-    console.log(`[BOT]: Menü açıldı -> ${window.title}`);
-    const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu (5. satır 1. sütun)
+    console.log(`[BOT]: Menü açıldı -> ${window.title || 'Bilinmeyen Menü'}`);
+    const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu
 
     setTimeout(async () => {
       try {
         await bot.clickWindow(GOLDEN_APPLE_SLOT, 0, 0);
-        console.log('[BOT]: Minyon besleme butonuna (Altın Elma - Slot 36) tıklandı!');
+        console.log('[BOT]: Minyon besleme butonuna (Altın Elma - Slot 36) basıldı!');
         
         setTimeout(() => {
-          if (bot) bot.closeWindow(window);
+          if (bot && bot.currentWindow) {
+            bot.closeWindow(window);
+            console.log('[BOT]: Minyon menüsü kapatıldı.');
+          }
         }, 1000);
       } catch (err) {
         console.log('[HATA]: Menü tıklama hatası:', err.message);
@@ -278,7 +288,6 @@ function botuBaslat() {
     if (username.toLowerCase() === CONFIG.targetUser.toLowerCase()) {
       const msg = message.trim();
 
-      // NOKTALI DINAMIK KOMUT KONTROLÜ
       if (msg.startsWith('.')) {
         const komut = msg.substring(1).trim();
         noktaliKomutCalistir(komut);
