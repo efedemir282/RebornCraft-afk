@@ -19,7 +19,7 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.21.6' // Sürüm RebornCraft gereksinimine göre 1.21.6 yapıldı
+  version: '1.21.4' // Stabil 1.21 protokol sürümü
 };
 
 let bot;
@@ -36,6 +36,7 @@ function createBot() {
     port: CONFIG.port,
     username: CONFIG.username,
     version: CONFIG.version,
+    viewDistance: 'tiny', // ClientSettings paket hatasını önlemek için
     checkTimeoutInterval: 30000,
     hideErrors: false
   });
@@ -44,7 +45,6 @@ function createBot() {
   bot.on('spawn', () => {
     console.log('>>> SUNUCUYA/BOYUTA GİRİŞ YAPILDI <<<');
     
-    // Giriş yapılmadıysa sadece bir defa /login at
     if (!isLoggedIn) {
       isLoggedIn = true;
       setTimeout(() => {
