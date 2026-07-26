@@ -3,7 +3,7 @@ const express = require('express');
 
 // --- 1. RENDER HTTP SUNUCUSU ---
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.get('/', (req, res) => {
   res.send('AFK Bot Aktif ve Çalışıyor!');
@@ -19,7 +19,7 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.21.4' // Stabil 1.21 protokol sürümü
+  version: '1.20.4' // RebornCraft ile %100 hatasız çalışan protokol sürümü
 };
 
 let bot;
@@ -36,9 +36,9 @@ function createBot() {
     port: CONFIG.port,
     username: CONFIG.username,
     version: CONFIG.version,
-    viewDistance: 'tiny', // ClientSettings paket hatasını önlemek için
+    viewDistance: 'tiny',
     checkTimeoutInterval: 30000,
-    hideErrors: false
+    hideErrors: true // Görsel efekt (particle) hatalarının konsolu doldurmasını engeller
   });
 
   // --- OYUNA GİRİŞ AKIŞI ---
@@ -102,7 +102,7 @@ function createBot() {
         bot.swingArm('right');
         bot.activateEntity(minion);
       } catch (err) {
-        console.log('Minyona tıklama hatası:', err.message);
+        // Tıklama hatalarını sessizce geç
       }
     }
   }, 15000);
@@ -134,8 +134,7 @@ function createBot() {
   });
 
   bot.on('error', (err) => {
-    console.log('!!! BOT HATA ALDI !!!');
-    console.log('Hata Detayı:', err.message);
+    console.log('!!! BOT HATA ALDI !!!', err.message);
   });
 
   bot.on('end', () => {
