@@ -36,10 +36,20 @@ function createBot() {
     port: CONFIG.port,
     username: CONFIG.username,
     version: CONFIG.version,
-    viewDistance: 4, // 'tiny' metni yerine sayısal chunk değeri verildi (FastDecoder hatasını çözer)
+    viewDistance: 4,
     checkTimeoutInterval: 30000,
     hideErrors: true
   });
+
+  // --- CLIENT SETTINGS (FAST DECODER) HATASINI ENGELLEME HOOK'U ---
+  // Mineflayer'ın sunucu/boyut değiştirirken gönderdiği bozuk ClientSettings paketini engeller
+  const originalWrite = bot._client.write.bind(bot._client);
+  bot._client.write = (name, params) => {
+    if (name === 'client_information' || name === 'settings') {
+      return; // Bozuk istemci ayarı paketini sunucuya gönderme
+    }
+    return originalWrite(name, params);
+  };
 
   // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
   bot._client.on('error', (err) => {
@@ -48,12 +58,7 @@ function createBot() {
     }
   });
 
-  // --- OYUNA GİRİŞ VE AYARLARIN DÜZELTİLMESİ ---
-  bot.on('login', () => {
-    bot.settings.viewDistance = 4;
-    bot.settings.colorsEnabled = true;
-  });
-
+  // --- OYUNA GİRİŞ AKIŞI ---
   bot.on('spawn', () => {
     console.log('>>> SUNUCUYA/BOYUTA GİRİŞ YAPILDI <<<');
     
