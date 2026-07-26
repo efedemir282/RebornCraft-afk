@@ -19,7 +19,7 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.20.4' // FastDecoder hatasını çözen kararlı protokol sürümü
+  version: '1.21.6' // Dunya-4'ün zorunlu kıldığı minimum sürüm
 };
 
 let bot = null;
@@ -31,8 +31,21 @@ function clearAllIntervals() {
   activeIntervals = [];
 }
 
+// 1.21.6 protokolü için eksiksiz istemci ayarlar paketi
+const VALID_CLIENT_INFO = {
+  locale: 'en_us',
+  viewDistance: 4,
+  chatFlags: 0,
+  chatColors: true,
+  skinParts: 127,
+  mainHand: 1,
+  enableTextFiltering: false,
+  enableServerListing: true,
+  particleStatus: 0
+};
+
 function createBot() {
-  clearAllIntervals(); // Yeniden bağlanırken eski tüm zamanlayıcıları yok et
+  clearAllIntervals();
   console.log(`${CONFIG.username} adıyla bota bağlanılıyor...`);
   
   let isLoggedIn = false;
@@ -46,8 +59,26 @@ function createBot() {
     version: CONFIG.version,
     viewDistance: 4,
     checkTimeoutInterval: 30000,
-    hideErrors: true
+    hideErrors: true,
+    clientInformation: VALID_CLIENT_INFO
   });
+
+  // --- FASTDECODER DÜZELTMESİ (ENJEKSİYON HOOK) ---
+  if (bot._client) {
+    const originalWrite = bot._client.write.bind(bot._client);
+    bot._client.write = function (name, params) {
+      // Sunucu geçişinde paket parametrelerini tam ve eksiksiz doldurur
+      if (name === 'client_information' || name === 'settings') {
+        const fullParams = Object.assign({}, VALID_CLIENT_INFO, params || {});
+        return originalWrite(name, fullParams);
+      }
+      return originalWrite(name, params);
+    };
+  }
+
+  if (bot.settings) {
+    Object.assign(bot.settings, VALID_CLIENT_INFO);
+  }
 
   // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
   if (bot._client) {
