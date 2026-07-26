@@ -19,7 +19,7 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.20.4' // RebornCraft ile %100 hatasız çalışan protokol sürümü
+  version: '1.21.6' // Skyblock alt sunucusunun zorunlu kıldığı minimum sürüm
 };
 
 let bot;
@@ -38,7 +38,14 @@ function createBot() {
     version: CONFIG.version,
     viewDistance: 'tiny',
     checkTimeoutInterval: 30000,
-    hideErrors: true // Görsel efekt (particle) hatalarının konsolu doldurmasını engeller
+    hideErrors: true
+  });
+
+  // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
+  bot._client.on('error', (err) => {
+    if (err && (err.name === 'PartialReadError' || (err.message && err.message.includes('Particle')))) {
+      return; // Protodef paket uyuşmazlığı hatalarını konsola yazma
+    }
   });
 
   // --- OYUNA GİRİŞ AKIŞI ---
@@ -134,6 +141,7 @@ function createBot() {
   });
 
   bot.on('error', (err) => {
+    if (err && (err.name === 'PartialReadError' || (err.message && err.message.includes('Particle')))) return;
     console.log('!!! BOT HATA ALDI !!!', err.message);
   });
 
