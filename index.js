@@ -17,8 +17,8 @@ app.listen(PORT, () => {
 const CONFIG = {
   host: 'reborncraft.pw',       
   port: 25565,
-  username: 'xBetray_31_AFK',   
-  password: 'efe43802',         
+  username: 'xBetray_31_AFK',   // Kullanıcı adın tanımlı
+  password: 'efe43802',         // Şifren tanımlı
   version: '1.21.1'
 };
 
@@ -44,7 +44,7 @@ function createBot() {
       console.log('Giriş komutu (/login) gönderildi.');
     }, 2000);
 
-    // 2. Adım: Giriş işleminin tamamlanmasını bekleyip /home at
+    // 2. Adım: Giriş işleminin tamamlanmasını bekleyip adaya git
     setTimeout(() => {
       bot.chat('/home');
       console.log('Adaya ışınlanma komutu (/home) gönderildi.');
@@ -116,7 +116,7 @@ function createBot() {
   bot.on('windowOpen', async (window) => {
     console.log(`>>> MENÜ AÇILDI: ${window.title} <<<`);
 
-    const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu
+    const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu (Görseldeki 5. satır 1. sütun)
 
     setTimeout(async () => {
       try {
