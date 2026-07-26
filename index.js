@@ -65,16 +65,22 @@ function komutGonder(komut) {
 // Bekletme Yardımcısı
 const bekle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Anti-Bot Koruma Yürüyüşü (2 Blok İleri)
+// Oyuna Girişte 2 Blok İleri + 2 Blok Geri Hareketi
 async function antiBotHareketi() {
   if (!bot || !bot.entity) return;
-  console.log('[BOT]: Anti-Bot engeli için hareket ediliyor...');
-  bot.setControlState('jump', true);
+  console.log('[BOT]: Oyuna ilk giriş hareketi yapılıyor (2 blok ileri, 2 blok geri)...');
+  
+  // 1. ADIM: 2 Blok İleri
   bot.setControlState('forward', true);
   await bekle(1200);
   bot.setControlState('forward', false);
-  bot.setControlState('jump', false);
-  await bekle(500); // Sunucunun konumu işlemesi için bekleme
+  await bekle(300);
+
+  // 2. ADIM: 2 Blok Geri
+  bot.setControlState('back', true);
+  await bekle(1200);
+  bot.setControlState('back', false);
+  await bekle(500);
 }
 
 // ==========================================
@@ -87,12 +93,9 @@ async function noktaliKomutCalistir(komutMetni) {
   isExecutingCustom = true;
 
   try {
-    console.log(`[BOT]: Noktalı komut algılandı: "${komutMetni}". Hareket ediliyor...`);
+    console.log(`[BOT]: Noktalı komut algılandı: "${komutMetni}". Doğrudan chate yazılıyor...`);
     
-    // 1. ADIM: Anti-bot yürüyüşünü yap
-    await antiBotHareketi();
-
-    // 2. ADIM: Doğrudan genel chate yaz / komutu çalıştır
+    // Doğrudan komutu gönderir
     komutGonder(komutMetni);
     console.log(`[BOT]: Genel chate yazıldı/komut çalıştırıldı: "${komutMetni}"`);
 
@@ -120,8 +123,6 @@ async function envanteriYereBosalt() {
       try { bot.closeWindow(bot.currentWindow); } catch (e) {}
       await bekle(500);
     }
-
-    await antiBotHareketi();
 
     const skippedSlots = new Set();
     let droppedCount = 0;
@@ -186,20 +187,27 @@ function botuBaslat() {
   let ilkGiris = true;
 
   // SPAWN
-  bot.on('spawn', () => {
+  bot.on('spawn', async () => {
     console.log('[BOT]: Bot oyuna yüklendi (Spawn).');
 
     if (ilkGiris) {
       ilkGiris = false;
 
-      // Login
-      setTimeout(() => komutGonder(`/login ${CONFIG.password}`), 3000);
+      // 1. Login yap
+      await bekle(3000);
+      komutGonder(`/login ${CONFIG.password}`);
 
-      // Skyblock
-      setTimeout(() => komutGonder('/skyblock'), 8000);
+      // 2. Skyblock'a geç
+      await bekle(4000);
+      komutGonder('/skyblock');
 
-      // Ada Home
-      setTimeout(() => komutGonder('/home'), 16000);
+      // 3. 2 blok ileri ve 2 blok geri yürü
+      await bekle(5000);
+      await antiBotHareketi();
+
+      // 4. Yürüyüş biter bitmez /home yaz
+      komutGonder('/home');
+      console.log('[BOT]: İleri/geri hareket tamamlandı, /home komutu gönderildi.');
 
       // AFK Zıplama (30 saniyede bir)
       jumpInterval = setInterval(() => {
