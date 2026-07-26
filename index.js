@@ -19,15 +19,17 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.21.1'
+  version: '1.21.6' // Sürüm RebornCraft gereksinimine göre 1.21.6 yapıldı
 };
 
 let bot;
 let isLoggedIn = false;
+let isSkyblockSent = false;
 
 function createBot() {
   console.log(`${CONFIG.username} adıyla bota bağlanılıyor...`);
   isLoggedIn = false;
+  isSkyblockSent = false;
   
   bot = mineflayer.createBot({
     host: CONFIG.host,
@@ -38,12 +40,13 @@ function createBot() {
     hideErrors: false
   });
 
-  // --- OYUNA GİRİŞ VE LOBİ AKIŞI ---
+  // --- OYUNA GİRİŞ AKIŞI ---
   bot.on('spawn', () => {
     console.log('>>> SUNUCUYA/BOYUTA GİRİŞ YAPILDI <<<');
     
-    // Henüz login olunmadıysa giriş yap
+    // Giriş yapılmadıysa sadece bir defa /login at
     if (!isLoggedIn) {
+      isLoggedIn = true;
       setTimeout(() => {
         bot.chat(`/login ${CONFIG.password}`);
         console.log('Giriş komutu (/login) gönderildi.');
@@ -51,29 +54,21 @@ function createBot() {
     }
   });
 
-  // --- CHAT DİNLEME VE OTOMATİK ADIMLAR ---
+  // --- CHAT DİNLEME VE OTOMATİK AKIŞ ---
   bot.on('messagestr', (message) => {
     console.log(`[CHAT] ${message}`);
     const msg = message.toLowerCase();
 
-    // 1. Adım: Giriş başarılı uyarısı geldiğinde Skyblock'a geç
-    if (msg.includes('giriş başarılı') || msg.includes('aktarılıyorsunuz')) {
-      isLoggedIn = true;
+    // Giriş başarılı uyarısı geldiğinde 1 defa /skyblock at
+    if ((msg.includes('giriş başarılı') || msg.includes('zaten giriş yaptın')) && !isSkyblockSent) {
+      isSkyblockSent = true;
       setTimeout(() => {
         bot.chat('/skyblock');
         console.log('Skyblock sunucusuna geçiş komutu (/skyblock) gönderildi.');
       }, 3000);
     }
 
-    // 2. Adım: Lobide kalındıysa veya uyara çıkarsa tekrar /skyblock at
-    if (msg.includes('sadece belirli olan komutları') || msg.includes('/skyblock')) {
-      setTimeout(() => {
-        bot.chat('/skyblock');
-        console.log('Lobide kalındı, tekrar /skyblock gönderildi.');
-      }, 2000);
-    }
-
-    // 3. Adım: Skyblock sunucusuna girince veya 3 dakikada bir adaya ışınlan
+    // Skyblock sunucusuna aktarıldığında adaya ışınlan
     if (msg.includes('rebornsky') || msg.includes('ada') || msg.includes('hoş geldiniz')) {
       setTimeout(() => {
         bot.chat('/home');
@@ -82,9 +77,9 @@ function createBot() {
     }
   });
 
-  // Her 3 dakikada bir adaya dönmeyi garantiye al
+  // Her 3 dakikada bir adada kalmayı garantiye almak için /home atar
   setInterval(() => {
-    if (bot && bot.entity && isLoggedIn) {
+    if (bot && bot.entity && isSkyblockSent) {
       bot.chat('/home');
       console.log('Periyodik adaya dönme (/home) gönderildi.');
     }
