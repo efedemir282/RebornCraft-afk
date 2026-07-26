@@ -13,7 +13,7 @@ app.listen(PORT, () => {
   console.log(`Web sunucusu ${PORT} portunda başlatıldı.`);
 });
 
-// --- 2. BOT AYARLARI ---
+// --- 2. BOT VE HESAP AYARLARI ---
 const CONFIG = {
   host: 'reborncraft.pw',       
   port: 25565,
@@ -23,9 +23,11 @@ const CONFIG = {
 };
 
 let bot;
+let isLoggedIn = false;
 
 function createBot() {
   console.log(`${CONFIG.username} adıyla bota bağlanılıyor...`);
+  isLoggedIn = false;
   
   bot = mineflayer.createBot({
     host: CONFIG.host,
@@ -36,25 +38,101 @@ function createBot() {
     hideErrors: false
   });
 
+  // --- OYUNA GİRİŞ VE LOBİ AKIŞI ---
   bot.on('spawn', () => {
-    console.log('>>> SUNUCUYA BAŞARIYLA GİRİŞ YAPILDI <<<');
+    console.log('>>> SUNUCUYA/BOYUTA GİRİŞ YAPILDI <<<');
     
-    setTimeout(() => {
-      bot.chat(`/login ${CONFIG.password}`);
-      console.log('Giriş komutu (/login) gönderildi.');
-    }, 2000);
-
-    setTimeout(() => {
-      bot.chat('/home');
-      console.log('Adaya ışınlanma komutu (/home) gönderildi.');
-    }, 7000);
+    // Henüz login olunmadıysa giriş yap
+    if (!isLoggedIn) {
+      setTimeout(() => {
+        bot.chat(`/login ${CONFIG.password}`);
+        console.log('Giriş komutu (/login) gönderildi.');
+      }, 2000);
+    }
   });
 
+  // --- CHAT DİNLEME VE OTOMATİK ADIMLAR ---
   bot.on('messagestr', (message) => {
     console.log(`[CHAT] ${message}`);
+    const msg = message.toLowerCase();
+
+    // 1. Adım: Giriş başarılı uyarısı geldiğinde Skyblock'a geç
+    if (msg.includes('giriş başarılı') || msg.includes('aktarılıyorsunuz')) {
+      isLoggedIn = true;
+      setTimeout(() => {
+        bot.chat('/skyblock');
+        console.log('Skyblock sunucusuna geçiş komutu (/skyblock) gönderildi.');
+      }, 3000);
+    }
+
+    // 2. Adım: Lobide kalındıysa veya uyara çıkarsa tekrar /skyblock at
+    if (msg.includes('sadece belirli olan komutları') || msg.includes('/skyblock')) {
+      setTimeout(() => {
+        bot.chat('/skyblock');
+        console.log('Lobide kalındı, tekrar /skyblock gönderildi.');
+      }, 2000);
+    }
+
+    // 3. Adım: Skyblock sunucusuna girince veya 3 dakikada bir adaya ışınlan
+    if (msg.includes('rebornsky') || msg.includes('ada') || msg.includes('hoş geldiniz')) {
+      setTimeout(() => {
+        bot.chat('/home');
+        console.log('Adaya ışınlanma (/home) gönderildi.');
+      }, 3000);
+    }
   });
 
-  // Hata ve Atılma Sebeplerini Açıkça Yazdır
+  // Her 3 dakikada bir adaya dönmeyi garantiye al
+  setInterval(() => {
+    if (bot && bot.entity && isLoggedIn) {
+      bot.chat('/home');
+      console.log('Periyodik adaya dönme (/home) gönderildi.');
+    }
+  }, 3 * 60 * 1000);
+
+  // --- MİNYON BULMA VE ONA BAKARAK TIKLAMA ---
+  setInterval(async () => {
+    if (!bot || !bot.entity) return;
+
+    const minion = bot.nearestEntity(e => 
+      (e.type === 'object' || e.type === 'mob' || e.type === 'player' || e.name === 'armor_stand') &&
+      e.id !== bot.entity.id
+    );
+
+    if (minion && bot.entity.position.distanceTo(minion.position) < 4) {
+      try {
+        const targetPos = minion.position.offset(0, 1, 0);
+        await bot.lookAt(targetPos);
+        
+        bot.swingArm('right');
+        bot.activateEntity(minion);
+      } catch (err) {
+        console.log('Minyona tıklama hatası:', err.message);
+      }
+    }
+  }, 15000);
+
+  // --- AÇILAN ARAYÜZ (GUI) İŞLEMLERİ ---
+  bot.on('windowOpen', async (window) => {
+    console.log(`>>> MENÜ AÇILDI: ${window.title} <<<`);
+
+    const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu (5. satır 1. sütun)
+
+    setTimeout(async () => {
+      try {
+        await bot.clickWindow(GOLDEN_APPLE_SLOT, 0, 0);
+        console.log('Minyon besleme butonuna (Altın Elma - Slot 36) tıklandı!');
+        
+        setTimeout(() => {
+          bot.closeWindow(window);
+        }, 1000);
+      } catch (err) {
+        console.log('Arayüz tıklama hatası:', err.message);
+      }
+    }, 1200);
+  });
+
+  // Hata ve Atılma Yönetimi
   bot.on('kicked', (reason) => {
     console.log('!!! BOT SUNUCUDAN ATILDI !!!');
     console.log('Atılma Sebebi:', JSON.stringify(reason));
@@ -65,10 +143,9 @@ function createBot() {
     console.log('Hata Detayı:', err.message);
   });
 
-  bot.on('end', (reason) => {
-    console.log(`Bağlantı koptu/sonlandı. Sebep/Kod: ${reason}`);
-    console.log('10 saniye sonra tekrar bağlanılacak...');
-    setTimeout(createBot, 10000);
+  bot.on('end', () => {
+    console.log('Bağlantı koptu. 15 saniye sonra tekrar bağlanılacak...');
+    setTimeout(createBot, 15000);
   });
 }
 
