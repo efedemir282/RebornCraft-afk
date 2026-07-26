@@ -22,15 +22,23 @@ const CONFIG = {
   version: '1.21.6'
 };
 
-let bot;
-let isLoggedIn = false;
-let isSkyblockSent = false;
+let bot = null;
+let activeIntervals = [];
+
+// Eski bağlantılardan kalan zamanlayıcıları temizleme fonksiyonu
+function clearAllIntervals() {
+  activeIntervals.forEach(clearInterval);
+  activeIntervals = [];
+}
 
 function createBot() {
+  clearAllIntervals(); // Yeniden bağlanırken eski tüm zamanlayıcıları yok et
   console.log(`${CONFIG.username} adıyla bota bağlanılıyor...`);
-  isLoggedIn = false;
-  isSkyblockSent = false;
   
+  let isLoggedIn = false;
+  let isSkyblockSent = false;
+  let inSkyblock = false; // Botun gerçekten Skyblock sunucusunda olup olmadığını takip eder
+
   bot = mineflayer.createBot({
     host: CONFIG.host,
     port: CONFIG.port,
@@ -41,12 +49,15 @@ function createBot() {
     hideErrors: true
   });
 
-  // --- CLIENT SETTINGS (FAST DECODER) HATASINI ENGELLEME HOOK'U ---
-  // Mineflayer'ın sunucu/boyut değiştirirken gönderdiği bozuk ClientSettings paketini engeller
+  // --- FASTDECODER & CLIENT SETTINGS PAKETİNİ TAMAMEN ENGELLEME ---
+  if (bot.settings) {
+    bot.settings.send = () => {}; // Mineflayer'ın otomatik ayar paketlerini engeller
+  }
+
   const originalWrite = bot._client.write.bind(bot._client);
   bot._client.write = (name, params) => {
     if (name === 'client_information' || name === 'settings') {
-      return; // Bozuk istemci ayarı paketini sunucuya gönderme
+      return; 
     }
     return originalWrite(name, params);
   };
@@ -65,7 +76,7 @@ function createBot() {
     if (!isLoggedIn) {
       isLoggedIn = true;
       setTimeout(() => {
-        bot.chat(`/login ${CONFIG.password}`);
+        if (bot) bot.chat(`/login ${CONFIG.password}`);
         console.log('Giriş komutu (/login) gönderildi.');
       }, 2000);
     }
@@ -80,31 +91,47 @@ function createBot() {
     if ((msg.includes('giriş başarılı') || msg.includes('zaten giriş yaptın')) && !isSkyblockSent) {
       isSkyblockSent = true;
       setTimeout(() => {
-        bot.chat('/skyblock');
+        if (bot) bot.chat('/skyblock');
         console.log('Skyblock sunucusuna geçiş komutu (/skyblock) gönderildi.');
       }, 3000);
     }
 
     // Skyblock sunucusuna aktarıldığında adaya ışınlan
     if (msg.includes('rebornsky') || msg.includes('ada') || msg.includes('hoş geldiniz')) {
+      inSkyblock = true; // Skyblock alanında olduğu onaylandı
       setTimeout(() => {
-        bot.chat('/home');
+        if (bot) bot.chat('/home');
         console.log('Adaya ışınlanma (/home) gönderildi.');
       }, 3000);
     }
   });
 
-  // Her 3 dakikada bir adada kalmayı garantiye almak için /home atar
-  setInterval(() => {
-    if (bot && bot.entity && isSkyblockSent) {
+  // --- ZAMANLAYICILAR (INTERVALS) ---
+  
+  // 1. Anti-AFK (12 saniyede bir bakış açısı değiştirme ve kol sallama)
+  const afkTimer = setInterval(() => {
+    if (bot && bot.entity) {
+      try {
+        const newYaw = bot.entity.yaw + 0.1;
+        bot.look(newYaw, bot.entity.pitch, true);
+        bot.swingArm('right');
+      } catch (e) {}
+    }
+  }, 12000);
+  activeIntervals.push(afkTimer);
+
+  // 2. Periyodik /home (SADECE Skyblock alanındaysa ve 3 dakikada bir)
+  const homeTimer = setInterval(() => {
+    if (bot && bot.entity && inSkyblock) {
       bot.chat('/home');
       console.log('Periyodik adaya dönme (/home) gönderildi.');
     }
   }, 3 * 60 * 1000);
+  activeIntervals.push(homeTimer);
 
-  // --- MİNYON BULMA VE ONA BAKARAK TIKLAMA ---
-  setInterval(async () => {
-    if (!bot || !bot.entity) return;
+  // 3. Minyon Bulma ve Besleme (SADECE Skyblock alanındaysa)
+  const minionTimer = setInterval(async () => {
+    if (!bot || !bot.entity || !inSkyblock) return;
 
     const minion = bot.nearestEntity(e => 
       (e.type === 'object' || e.type === 'mob' || e.type === 'player' || e.name === 'armor_stand') &&
@@ -115,19 +142,16 @@ function createBot() {
       try {
         const targetPos = minion.position.offset(0, 1, 0);
         await bot.lookAt(targetPos);
-        
         bot.swingArm('right');
         bot.activateEntity(minion);
-      } catch (err) {
-        // Tıklama hatalarını sessizce geç
-      }
+      } catch (err) {}
     }
   }, 15000);
+  activeIntervals.push(minionTimer);
 
   // --- AÇILAN ARAYÜZ (GUI) İŞLEMLERİ ---
   bot.on('windowOpen', async (window) => {
     console.log(`>>> MENÜ AÇILDI: ${window.title} <<<`);
-
     const GOLDEN_APPLE_SLOT = 36; // Altın Elma Slotu (5. satır 1. sütun)
 
     setTimeout(async () => {
@@ -136,7 +160,7 @@ function createBot() {
         console.log('Minyon besleme butonuna (Altın Elma - Slot 36) tıklandı!');
         
         setTimeout(() => {
-          bot.closeWindow(window);
+          if (bot) bot.closeWindow(window);
         }, 1000);
       } catch (err) {
         console.log('Arayüz tıklama hatası:', err.message);
@@ -144,7 +168,7 @@ function createBot() {
     }, 1200);
   });
 
-  // Hata ve Atılma Yönetimi
+  // Hata ve Bağlantı Kopması Yönetimi
   bot.on('kicked', (reason) => {
     console.log('!!! BOT SUNUCUDAN ATILDI !!!');
     console.log('Atılma Sebebi:', JSON.stringify(reason));
@@ -156,7 +180,9 @@ function createBot() {
   });
 
   bot.on('end', () => {
-    console.log('Bağlantı koptu. 15 saniye sonra tekrar bağlanılacak...');
+    console.log('Bağlantı koptu. Eski zamanlayıcılar temizleniyor...');
+    clearAllIntervals();
+    inSkyblock = false;
     setTimeout(createBot, 15000);
   });
 }
