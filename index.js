@@ -37,7 +37,7 @@ function createBot() {
   
   let isLoggedIn = false;
   let isSkyblockSent = false;
-  let inSkyblock = false; // Botun gerçekten Skyblock sunucusunda olup olmadığını takip eder
+  let inSkyblock = false;
 
   bot = mineflayer.createBot({
     host: CONFIG.host,
@@ -46,21 +46,36 @@ function createBot() {
     version: CONFIG.version,
     viewDistance: 4,
     checkTimeoutInterval: 30000,
-    hideErrors: true
+    hideErrors: true,
+    // 1.21.6 için FastDecoder hatasını önleyen tam istemci bilgisi paketi
+    clientInformation: {
+      locale: 'en_us',
+      viewDistance: 4,
+      chatFlags: 0,
+      chatColors: true,
+      skinParts: 127,
+      mainHand: 1,
+      enableTextFiltering: false,
+      enableServerListing: true,
+      particleStatus: 0
+    }
   });
 
-  // --- FASTDECODER & CLIENT SETTINGS PAKETİNİ TAMAMEN ENGELLEME ---
-  if (bot.settings) {
-    bot.settings.send = () => {}; // Mineflayer'ın otomatik ayar paketlerini engeller
+  // --- FASTDECODER PAKET ENGELLENMESİ (ROBUST HOOK) ---
+  if (bot._client) {
+    const originalWrite = bot._client.write.bind(bot._client);
+    bot._client.write = (name, params) => {
+      // Sunucu geçişinde fırlatılan bozuk client_information ve settings paketlerini engeller
+      if (name === 'client_information' || name === 'settings') {
+        return;
+      }
+      return originalWrite(name, params);
+    };
   }
 
-  const originalWrite = bot._client.write.bind(bot._client);
-  bot._client.write = (name, params) => {
-    if (name === 'client_information' || name === 'settings') {
-      return; 
-    }
-    return originalWrite(name, params);
-  };
+  if (bot.settings) {
+    bot.settings.send = () => {}; // Mineflayer'ın dahili otomatik ayar gönderimini kapat
+  }
 
   // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
   bot._client.on('error', (err) => {
@@ -98,7 +113,7 @@ function createBot() {
 
     // Skyblock sunucusuna aktarıldığında adaya ışınlan
     if (msg.includes('rebornsky') || msg.includes('ada') || msg.includes('hoş geldiniz')) {
-      inSkyblock = true; // Skyblock alanında olduğu onaylandı
+      inSkyblock = true;
       setTimeout(() => {
         if (bot) bot.chat('/home');
         console.log('Adaya ışınlanma (/home) gönderildi.');
