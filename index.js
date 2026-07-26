@@ -19,7 +19,7 @@ const CONFIG = {
   port: 25565,
   username: 'xBetray_31_AFK',   
   password: 'efe43802',         
-  version: '1.21.6'
+  version: '1.20.4' // FastDecoder hatasını çözen kararlı protokol sürümü
 };
 
 let bot = null;
@@ -49,28 +49,14 @@ function createBot() {
     hideErrors: true
   });
 
-  // --- FASTDECODER ENGELLENMESİ (SOKET / WRITE HOOK) ---
-  if (bot._client) {
-    const originalWrite = bot._client.write.bind(bot._client);
-    bot._client.write = function (name, params) {
-      // Sunucu geçişinde fırlatılan bozuk client_information ve settings paketlerini engeller
-      if (name === 'client_information' || name === 'settings') {
-        return; 
-      }
-      return originalWrite(name, params);
-    };
-  }
-
-  if (bot.settings) {
-    bot.settings.send = () => {}; // Mineflayer otomatik ayar tetikleyicisini kapat
-  }
-
   // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
-  bot._client.on('error', (err) => {
-    if (err && (err.name === 'PartialReadError' || (err.message && err.message.includes('Particle')))) {
-      return;
-    }
-  });
+  if (bot._client) {
+    bot._client.on('error', (err) => {
+      if (err && (err.name === 'PartialReadError' || (err.message && err.message.includes('Particle')))) {
+        return;
+      }
+    });
+  }
 
   // --- OYUNA GİRİŞ AKIŞI ---
   bot.on('spawn', () => {
