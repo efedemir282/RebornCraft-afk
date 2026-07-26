@@ -46,35 +46,32 @@ function createBot() {
     version: CONFIG.version,
     viewDistance: 4,
     checkTimeoutInterval: 30000,
-    hideErrors: true,
-    // 1.21.6 için FastDecoder hatasını önleyen tam istemci bilgisi paketi
-    clientInformation: {
-      locale: 'en_us',
-      viewDistance: 4,
-      chatFlags: 0,
-      chatColors: true,
-      skinParts: 127,
-      mainHand: 1,
-      enableTextFiltering: false,
-      enableServerListing: true,
-      particleStatus: 0
-    }
+    hideErrors: true
   });
 
-  // --- FASTDECODER PAKET ENGELLENMESİ (ROBUST HOOK) ---
+  // --- FASTDECODER ENGELEME (SOKET / QUEUE & WRITE HOOK) ---
   if (bot._client) {
+    // 1. Queue Seviyesinde Engelleme (Mineflayer otomatik sunucu geçiş paketi)
+    const originalQueue = bot._client.queue.bind(bot._client);
+    bot._client.queue = (name, params) => {
+      if (name === 'client_information' || name === 'settings') {
+        return; // Paketi sunucuya fırlatmadan yok et
+      }
+      return originalQueue(name, params);
+    };
+
+    // 2. Write Seviyesinde Engelleme
     const originalWrite = bot._client.write.bind(bot._client);
     bot._client.write = (name, params) => {
-      // Sunucu geçişinde fırlatılan bozuk client_information ve settings paketlerini engeller
       if (name === 'client_information' || name === 'settings') {
-        return;
+        return; // Paketi sunucuya fırlatmadan yok et
       }
       return originalWrite(name, params);
     };
   }
 
   if (bot.settings) {
-    bot.settings.send = () => {}; // Mineflayer'ın dahili otomatik ayar gönderimini kapat
+    bot.settings.send = () => {}; // Mineflayer'ın dahili ayar tetikleyicisini kapat
   }
 
   // --- PARÇACIK (PARTICLE) PROTOKOL HATALARINI YUTMA ---
