@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.status(200).send('xBetray_31_AFK Botu 7/24 Aktif!');
+  res.status(200).send('xBetray_31_AFK Minyon Besleme Botu 7/24 Aktif!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -24,13 +24,16 @@ process.on('unhandledRejection', (reason) => {
   console.log('[Sistem Uyarısı] Rejection:', reason);
 });
 
+// --- 3. YETKİLİ HESAP LİSTESİ ---
+const AUTHORIZED_USERS = ['xbetray_31', 'xeregos'];
+
 let bot = null;
 let afkInterval = null;
 let kontrolInterval = null;
 let isConnecting = false;
 let activeTimeouts = [];
 
-// ZAMANLAYICI TEMİZLEME MEKANİZMASI (HAYALET KOMUTLARI ENGELLER)
+// ZAMANLAYICI TEMİZLEME MEKANİZMASI
 function safeTimeout(fn, delay) {
   const t = setTimeout(() => {
     fn();
@@ -78,6 +81,58 @@ function botuBaslat() {
     }
   }
 
+  // MİNYON BESLEME VE ALTIN ELMA (36. SLOT) TIKLAMA FONKSİYONU
+  function minyonBesle() {
+    if (!bot || !bot.entity) return;
+
+    try {
+      // Menü açıldığında Altın Elma'ya (36. slot) basan dinleyici
+      bot.once('windowOpen', (window) => {
+        console.log(`>> [MİNYON MENÜSÜ] Menü açıldı: ${window.title || 'Minyon Paneli'}`);
+        
+        safeTimeout(() => {
+          try {
+            // Görseldeki sabit Altın Elma konumu: 36. Slot (5. satır 1. sütun)
+            const TARGET_SLOT = 36;
+
+            bot.clickWindow(TARGET_SLOT, 0, 0);
+            console.log(`>> [MİNYON] ${TARGET_SLOT}. slottaki Altın Elma'ya basıldı ve besleme yapıldı!`);
+          } catch (e) {
+            console.log('Menü içi tıklama hatası:', e.message);
+          }
+        }, 1200);
+      });
+
+      // Etraftaki Minyon / ArmorStand / NPC varlıklarını tara
+      const minyon = bot.nearestEntity(e => {
+        const entityName = (e.customName || e.name || '').toLowerCase();
+        return (
+          entityName.includes('cehennem') ||
+          e.name === 'armor_stand' ||
+          e.name === 'villager' ||
+          e.type === 'object' ||
+          e.type === 'mob'
+        );
+      });
+
+      if (minyon && bot.entity.position.distanceTo(minyon.position) <= 4) {
+        bot.activateEntity(minyon);
+        bot.swingArm('right');
+        console.log(`>> [MİNYON] Minyona sağ tıklandı, menü bekleniyor...`);
+      } else {
+        // Varlık doğrudan yakalanamazsa bakılan bloğa sağ tıkla
+        bot.swingArm('right');
+        const targetBlock = bot.blockAtCursor(4);
+        if (targetBlock) {
+          bot.activateBlock(targetBlock);
+          console.log('>> [MİNYON] Bakılan bloğa sağ tıklandı, menü bekleniyor...');
+        }
+      }
+    } catch (err) {
+      console.log('Minyon besleme hatası:', err.message);
+    }
+  }
+
   function sifirlaVeYenidenBaslat() {
     clearAllTimeouts();
     if (afkInterval) clearInterval(afkInterval);
@@ -94,21 +149,48 @@ function botuBaslat() {
     setTimeout(botuBaslat, 15000);
   }
 
-  // UZAKTAN /MSG İLE KONTROL FONKSİYONU
+  // YETKİLİ UZAKTAN KONTROL VE TPA / CHAT MEKANİZMASI
   function msgKomutIsle(gonderen, mesajIcerik) {
+    if (!gonderen) return;
+    const gonderenTemiz = gonderen.replace(/[^a-zA-Z0-9_]/g, '');
+
+    // Sıkı Güvenlik Kontrolü: Sadece xBetray_31 ve xEregos
+    if (!AUTHORIZED_USERS.includes(gonderenTemiz.toLowerCase())) {
+      console.log(`>> [ENGEL] Yetkisiz mesaj reddedildi (${gonderenTemiz}): ${mesajIcerik}`);
+      return;
+    }
+
     const icerik = mesajIcerik.trim().toLowerCase();
+    console.log(`>> [YETKİLİ KONTROL] ${gonderenTemiz} mesaj attı: ${mesajIcerik}`);
 
-    console.log(`>> [UZAKTAN KONTROL] ${gonderen} mesaj attı: ${mesajIcerik}`);
-
-    if (icerik === 'home') {
+    // TPA KOMUTLARI (/msg tpa VEYA /msg tpa oyuncu)
+    if (icerik === 'tpa') {
+      komutGonder(`/tpa ${gonderenTemiz}`);
+      komutGonder(`/msg ${gonderenTemiz} ${gonderenTemiz} hesabına /tpa isteği gönderildi!`);
+    } else if (icerik.startsWith('tpa ')) {
+      const hedefKullanici = mesajIcerik.substring(4).trim();
+      komutGonder(`/tpa ${hedefKullanici}`);
+      komutGonder(`/msg ${gonderenTemiz} ${hedefKullanici} hesabına /tpa isteği gönderildi!`);
+    }
+    // GENERAL CHAT'E YAZI YAZDIRMA (/msg yaz Selamlar VEYA /msg chat Naber)
+    else if (icerik.startsWith('yaz ') || icerik.startsWith('chat ') || icerik.startsWith('say ')) {
+      const gonderilecekMesaj = mesajIcerik.substring(mesajIcerik.indexOf(' ') + 1);
+      komutGonder(gonderilecekMesaj);
+      komutGonder(`/msg ${gonderenTemiz} Genel chata yazıldı: ${gonderilecekMesaj}`);
+    }
+    // DİĞER KOMUTLAR
+    else if (icerik === 'home') {
       komutGonder('/home');
-      komutGonder(`/msg ${gonderen} AFK konumuna (/home) ışınlanıldı!`);
+      komutGonder(`/msg ${gonderenTemiz} Minyon alanına (/home) ışınlanıldı!`);
+    } else if (icerik === 'besle') {
+      minyonBesle();
+      komutGonder(`/msg ${gonderenTemiz} Altın Elma ile minyon besleme tetiklendi!`);
     } else if (icerik === 'durum' || icerik === 'ping') {
-      komutGonder(`/msg ${gonderen} Bot aktif! (xBetray_31_AFK)`);
+      komutGonder(`/msg ${gonderenTemiz} Bot aktif! (xBetray_31_AFK - Minyon Besleme)`);
     } else if (icerik.startsWith('komut ')) {
       const gonderilecekKomut = mesajIcerik.substring(6);
       komutGonder(gonderilecekKomut);
-      komutGonder(`/msg ${gonderen} Komut çalıştırıldı: ${gonderilecekKomut}`);
+      komutGonder(`/msg ${gonderenTemiz} Özel komut çalıştırıldı: ${gonderilecekKomut}`);
     }
   }
 
@@ -152,7 +234,7 @@ function botuBaslat() {
 
     // 1. Şifre Gir (4. saniye)
     safeTimeout(() => {
-      komutGonder('/login efe43802'); // <--- ŞİFRE GÜNCELLENDİ
+      komutGonder('/login efe43802');
       console.log('>> [1/3] /login gönderildi.');
     }, 4000);
 
@@ -162,18 +244,21 @@ function botuBaslat() {
       console.log('>> [2/3] Skyblock sunucusuna geçiş yapılıyor...');
     }, 10000);
 
-    // 3. AFK Konumuna Çek (16. saniye)
+    // 3. Minyon Konumuna Çek (16. saniye)
     safeTimeout(() => {
       komutGonder('/home');
-      console.log('>> [3/3] AFK alanına (/home) çekildi.');
+      console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
-    // AFK Zıplama & Kol Sallama (Her 25 saniyede bir)
+    // 4. Periyodik AFK Zıplama & Minyon Besleme (Her 30 saniyede bir)
     if (afkInterval) clearInterval(afkInterval);
     afkInterval = setInterval(() => {
       if (bot && bot.entity) {
+        // Zıplama
         bot.setControlState('jump', true);
-        try { bot.swingArm('right'); } catch (e) {}
+        
+        // Minyon Besleme Etkileşimi
+        minyonBesle();
 
         setTimeout(() => {
           if (bot && bot.entity) {
@@ -181,9 +266,9 @@ function botuBaslat() {
           }
         }, 400);
       }
-    }, 25000);
+    }, 30000);
 
-    // Periyodik Kontrol (Her 15 dakikada bir)
+    // 5. Periyodik Konum Kontrolü (Her 15 dakikada bir /home tazeleme)
     if (kontrolInterval) clearInterval(kontrolInterval);
     kontrolInterval = setInterval(() => {
       if (bot && bot.entity) {
