@@ -81,6 +81,30 @@ function botuBaslat() {
     }
   }
 
+  // ENVANTERDEKİ TÜM EŞYALARI YERE ATMA FONKSİYONU
+  async function esyalariBosalt(gonderen) {
+    if (!bot || !bot.inventory) return;
+
+    const items = bot.inventory.items();
+    if (items.length === 0) {
+      komutGonder(`/msg ${gonderen} Envanterimde atılacak eşya yok!`);
+      return;
+    }
+
+    komutGonder(`/msg ${gonderen} Envanterdeki tüm eşyalar yere atılıyor...`);
+
+    for (const item of items) {
+      try {
+        await bot.tossStack(item);
+        await new Promise(r => setTimeout(r, 250)); // Lag engelleme beklemesi
+      } catch (err) {
+        console.log('Eşya atma hatası:', err.message);
+      }
+    }
+
+    komutGonder(`/msg ${gonderen} Tüm eşyalar başarıyla yere atıldı!`);
+  }
+
   // MİNYON BESLEME VE ALTIN ELMA (36. SLOT) TIKLAMA FONKSİYONU
   function minyonBesle() {
     if (!bot || !bot.entity) return;
@@ -92,7 +116,7 @@ function botuBaslat() {
         
         safeTimeout(() => {
           try {
-            // Görseldeki sabit Altın Elma konumu: 36. Slot (5. satır 1. sütun)
+            // Görseldeki sabit Altın Elma konumu: 36. Slot
             const TARGET_SLOT = 36;
 
             bot.clickWindow(TARGET_SLOT, 0, 0);
@@ -149,7 +173,7 @@ function botuBaslat() {
     setTimeout(botuBaslat, 15000);
   }
 
-  // YETKİLİ UZAKTAN KONTROL VE TPA / CHAT MEKANİZMASI
+  // YETKİLİ UZAKTAN KONTROL VE TPA / CHAT / BOŞALT MEKANİZMASI
   function msgKomutIsle(gonderen, mesajIcerik) {
     if (!gonderen) return;
     const gonderenTemiz = gonderen.replace(/[^a-zA-Z0-9_]/g, '');
@@ -163,8 +187,12 @@ function botuBaslat() {
     const icerik = mesajIcerik.trim().toLowerCase();
     console.log(`>> [YETKİLİ KONTROL] ${gonderenTemiz} mesaj attı: ${mesajIcerik}`);
 
+    // ENVANTER BOŞALTMA KOMUTU
+    if (icerik === 'bosalt' || icerik === 'boşalt') {
+      esyalariBosalt(gonderenTemiz);
+    }
     // TPA KOMUTLARI (/msg tpa VEYA /msg tpa oyuncu)
-    if (icerik === 'tpa') {
+    else if (icerik === 'tpa') {
       komutGonder(`/tpa ${gonderenTemiz}`);
       komutGonder(`/msg ${gonderenTemiz} ${gonderenTemiz} hesabına /tpa isteği gönderildi!`);
     } else if (icerik.startsWith('tpa ')) {
@@ -250,23 +278,14 @@ function botuBaslat() {
       console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
-    // 4. Periyodik AFK Zıplama & Minyon Besleme (Her 30 saniyede bir)
+    // 4. Periyodik Minyon Besleme Döngüsü (Her 30 Dakikada Bir)
     if (afkInterval) clearInterval(afkInterval);
     afkInterval = setInterval(() => {
       if (bot && bot.entity) {
-        // Zıplama
-        bot.setControlState('jump', true);
-        
-        // Minyon Besleme Etkileşimi
+        console.log('>> [30 DK DÖNGÜSÜ] Minyon besleme tetikleniyor...');
         minyonBesle();
-
-        setTimeout(() => {
-          if (bot && bot.entity) {
-            bot.setControlState('jump', false);
-          }
-        }, 400);
       }
-    }, 30000);
+    }, 30 * 60 * 1000);
 
     // 5. Periyodik Konum Kontrolü (Her 15 dakikada bir /home tazeleme)
     if (kontrolInterval) clearInterval(kontrolInterval);
