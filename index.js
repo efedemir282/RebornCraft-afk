@@ -1,319 +1,212 @@
 const mineflayer = require('mineflayer');
 const express = require('express');
 
-// ==========================================
-// 1. RENDER WEB SUNUCUSU (Keep-Alive)
-// ==========================================
+// --- 1. RENDER PORT VE WEB SUNUCUSU ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('xBetray_31_AFK Botu 7/24 Aktif!');
+  res.status(200).send('xBetray_31_AFK Botu 7/24 Aktif!');
 });
 
-app.listen(PORT, () => {
-  console.log(`[WEB]: Web sunucusu ${PORT} portunda sorunsuz başlatıldı.`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Express] Web sunucusu ${PORT} portunda başarıyla başlatıldı.`);
 });
 
-// ==========================================
-// 2. BOT AYARLARI (Senin Bilgilerin Göpülü)
-// ==========================================
-const CONFIG = {
-  host: 'play.reborncraft.pw',
-  port: 25565,
-  username: 'xBetray_31_AFK',
-  password: 'efe43802',
-  targetUser: 'xBetray_31' // Komut verecek ana hesap
-};
+// --- 2. GLOBAL ÇÖKME KORUMALARI ---
+process.on('uncaughtException', (err) => {
+  if (err.name === 'PartialReadError' || err.message?.includes('PartialReadError')) return;
+  console.log('[Sistem Uyarısı] Hata:', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  if (reason && (reason.name === 'PartialReadError' || reason.message?.includes('PartialReadError'))) return;
+  console.log('[Sistem Uyarısı] Rejection:', reason);
+});
 
 let bot = null;
-let jumpInterval = null;
-let homeInterval = null;
-let minionInterval = null;
+let afkInterval = null;
+let kontrolInterval = null;
 let isConnecting = false;
-let tpaCooldown = false;
-let isDropping = false;
-let isExecutingCustom = false;
+let activeTimeouts = [];
 
-// Zamanlayıcı Temizliği
-function tumZamanlayicilariTemizle() {
-  if (jumpInterval) { clearInterval(jumpInterval); jumpInterval = null; }
-  if (homeInterval) { clearInterval(homeInterval); homeInterval = null; }
-  if (minionInterval) { clearInterval(minionInterval); minionInterval = null; }
+// ZAMANLAYICI TEMİZLEME MEKANİZMASI (HAYALET KOMUTLARI ENGELLER)
+function safeTimeout(fn, delay) {
+  const t = setTimeout(() => {
+    fn();
+    activeTimeouts = activeTimeouts.filter(item => item !== t);
+  }, delay);
+  activeTimeouts.push(t);
+  return t;
 }
 
-// Güvenli Komut Gönderme
-function komutGonder(komut) {
-  if (bot && bot._client && typeof bot.chat === 'function') {
-    try {
-      bot.chat(komut);
-    } catch (err) {
-      console.log(`[HATA]: Komut gönderilemedi (${komut}):`, err.message);
-    }
-  }
+function clearAllTimeouts() {
+  activeTimeouts.forEach(t => clearTimeout(t));
+  activeTimeouts = [];
 }
 
-// Bekletme Yardımcısı
-const bekle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Oyuna Girişte Anti-Bot Hareketi
-async function antiBotHareketi() {
-  if (!bot || !bot.entity) return;
-  console.log('[BOT]: Anti-bot hareketi yapılıyor (2 blok ileri, 2 blok geri)...');
-  
-  bot.setControlState('forward', true);
-  await bekle(1200);
-  bot.setControlState('forward', false);
-  await bekle(300);
-
-  bot.setControlState('back', true);
-  await bekle(1200);
-  bot.setControlState('back', false);
-  await bekle(500);
-}
-
-// ==========================================
-// 3. DİNAMİK KOMUT YÜRÜTÜCÜ
-// ==========================================
-async function noktaliKomutCalistir(komutMetni) {
-  if (!bot || !komutMetni || isExecutingCustom) return;
-  isExecutingCustom = true;
-
-  try {
-    console.log(`[BOT]: Noktalı komut algılandı: "${komutMetni}". Chate yazılıyor...`);
-    komutGonder(komutMetni);
-  } catch (err) {
-    console.log('[HATA]: Dinamik komut hatası:', err.message);
-  } finally {
-    isExecutingCustom = false;
-  }
-}
-
-// ==========================================
-// 4. ENVANTER BOŞALTMA
-// ==========================================
-async function envanteriYereBosalt() {
-  if (!bot || !bot.inventory || isDropping) return;
-  isDropping = true;
-
-  try {
-    if (bot.currentWindow) {
-      try { bot.closeWindow(bot.currentWindow); } catch (e) {}
-      await bekle(500);
-    }
-
-    const skippedSlots = new Set();
-    let droppedCount = 0;
-
-    while (true) {
-      const currentItems = bot.inventory.items().filter(item => !skippedSlots.has(item.slot));
-      if (currentItems.length === 0) break;
-
-      const item = currentItems[0];
-      try {
-        if (bot.entity) await bot.look(bot.entity.yaw, 0, true);
-        await bot.tossStack(item);
-        droppedCount++;
-      } catch (err) {
-        skippedSlots.add(item.slot);
-      }
-      await bekle(400);
-    }
-
-    console.log(`[BOT]: Toplam ${droppedCount} slot eşya atıldı!`);
-  } catch (err) {
-    console.log('[HATA]: Envanter boşaltma hatası:', err.message);
-  } finally {
-    isDropping = false;
-  }
-}
-
-// ==========================================
-// 5. BOT BAĞLANTI VE MANTIĞI
-// ==========================================
 function botuBaslat() {
   if (isConnecting) return;
   isConnecting = true;
-  tumZamanlayicilariTemizle();
 
-  console.log('[BOT]: Sunucuya bağlantı kuruluyor...');
+  console.log('RebornCraft sunucusuna bağlanılıyor...');
 
-  bot = mineflayer.createBot({
-    host: CONFIG.host,
-    port: CONFIG.port,
-    username: CONFIG.username,
-    version: false, // Sürüm ayarına dokunulmadı
-    viewDistance: 'tiny',
-    checkTimeoutInterval: 120 * 1000,
-    physicsEnabled: true,
-    hideErrors: true // Parçacık paket okuma hatalarını bastırır
-  });
+  try {
+    bot = mineflayer.createBot({
+      host: 'play.reborncraft.pw',
+      port: 25565,
+      username: 'xBetray_31_AFK',
+      version: '1.21.6',
+      viewDistance: 'tiny',
+      checkTimeoutInterval: 120 * 1000,
+      physicsEnabled: true,
+      hideErrors: true
+    });
+  } catch (err) {
+    console.log('Bot başlatma hatası:', err.message);
+    sifirlaVeYenidenBaslat();
+    return;
+  }
 
-  let ilkGiris = true;
-
-  bot.on('spawn', async () => {
-    console.log('[BOT]: Bot oyuna yüklendi (Spawn).');
-
-    if (ilkGiris) {
-      ilkGiris = false;
-
-      // 1. Giriş Yap
-      await bekle(2000);
-      komutGonder(`/login ${CONFIG.password}`);
-
-      // 2. Skyblock'a Geç
-      await bekle(4000);
-      komutGonder('/skyblock');
-
-      // 3. Yürü & /home At
-      await bekle(5000);
-      await antiBotHareketi();
-      komutGonder('/home');
-      console.log('[BOT]: /home komutu gönderildi.');
-
-      // Zıplama (30s)
-      jumpInterval = setInterval(() => {
-        if (bot && bot.entity) {
-          bot.setControlState('jump', true);
-          setTimeout(() => { if (bot && bot.entity) bot.setControlState('jump', false); }, 500);
-        }
-      }, 30000);
-
-      // Home (10dk)
-      homeInterval = setInterval(() => {
-        if (bot && bot.entity) komutGonder('/home');
-      }, 10 * 60 * 1000);
-
-      // Minyon Besleme Döngüsü (30dk)
-      minionInterval = setInterval(async () => {
-        if (!bot || !bot.entity) return;
-
-        if (bot.currentWindow) {
-          try { bot.closeWindow(bot.currentWindow); } catch (e) {}
-          await bekle(500);
-        }
-
-        const minion = bot.nearestEntity(e => 
-          (e.name === 'armor_stand' || e.type === 'object' || e.type === 'mob') &&
-          e.id !== bot.entity.id
-        );
-
-        if (minion) {
-          const mesafe = bot.entity.position.distanceTo(minion.position);
-          console.log(`[BOT]: Minyon/Zırh askısı bulundu. Mesafe: ${mesafe.toFixed(2)} blok.`);
-
-          if (mesafe <= 5) {
-            try {
-              await bot.lookAt(minion.position.offset(0, 1.2, 0));
-              await bekle(300);
-              bot.swingArm('right');
-              bot.activateEntity(minion);
-            } catch (err) {
-              console.log('[HATA]: Minyon etkileşim hatası:', err.message);
-            }
-          }
-        } else {
-          console.log('[BOT]: Yakında beslenecek minyon bulunamadı.');
-        }
-      }, 30 * 60 * 1000);
-    }
-  });
-
-  // Minyon Menüsü Açıldığında Altın Elmayı Tıkla (Slot 36)
-  bot.on('windowOpen', async (window) => {
-    console.log(`[BOT]: Menü açıldı -> ${window.title || 'Bilinmeyen'}`);
-    setTimeout(async () => {
+  function komutGonder(komut) {
+    if (bot && bot._client && typeof bot.chat === 'function') {
       try {
-        await bot.clickWindow(36, 0, 0);
-        console.log('[BOT]: Minyon besleme butonuna (Slot 36) basıldı!');
-        setTimeout(() => {
-          if (bot && bot.currentWindow) bot.closeWindow(window);
-        }, 1000);
-      } catch (err) {
-        console.log('[HATA]: Tıklama hatası:', err.message);
-      }
-    }, 1200);
-  });
-
-  // Fısıltı Komutları
-  bot.on('whisper', (username, message) => {
-    if (username.toLowerCase() === CONFIG.targetUser.toLowerCase()) {
-      const msg = message.trim();
-      if (msg.startsWith('.')) {
-        noktaliKomutCalistir(msg.substring(1).trim());
-      } else if (msg.toLowerCase().includes('drop') || msg.toLowerCase().includes('bosalt')) {
-        envanteriYereBosalt();
-      } else if (msg.toLowerCase().includes('isinlan') && !tpaCooldown) {
-        tpaCooldown = true;
-        komutGonder(`/tpa ${CONFIG.targetUser}`);
-        setTimeout(() => { tpaCooldown = false; }, 15000);
+        bot.chat(komut);
+      } catch (e) {
+        console.log('Komut hatası:', e.message);
       }
     }
-  });
+  }
 
-  // Chat Dinleyici
-  bot.on('message', (jsonMsg) => {
-    const hamMesaj = jsonMsg.toString().trim();
-    if (!hamMesaj) return;
+  function sifirlaVeYenidenBaslat() {
+    clearAllTimeouts();
+    if (afkInterval) clearInterval(afkInterval);
+    if (kontrolInterval) clearInterval(kontrolInterval);
 
-    console.log(`[SUNUCU]: ${hamMesaj}`);
-    const temiz = hamMesaj.toLowerCase();
-
-    // Otomatik Login Yakalayıcı
-    if (temiz.includes('/login') || temiz.includes('giris yapin') || temiz.includes('sifre')) {
-      setTimeout(() => komutGonder(`/login ${CONFIG.password}`), 1000);
-    }
-
-    const hedefAitMi = temiz.includes(CONFIG.targetUser.toLowerCase());
-
-    if (hedefAitMi) {
-      const noktaliEsllesme = hamMesaj.match(new RegExp(`${CONFIG.targetUser}.*?[»>:]\\s*\\.(.+)`, 'i'));
-      if (noktaliEsllesme && noktaliEsllesme[1]) {
-        noktaliKomutCalistir(noktaliEsllesme[1].trim());
-        return;
-      }
-
-      if (temiz.includes('drop') || temiz.includes('bosalt')) {
-        if (!temiz.includes('temizlendi') && !temiz.includes('silindi')) envanteriYereBosalt();
-      }
-
-      if (temiz.includes('isinlan') && !tpaCooldown) {
-        if (!temiz.includes('gonderildi') && !temiz.includes('kabul')) {
-          tpaCooldown = true;
-          komutGonder(`/tpa ${CONFIG.targetUser}`);
-          setTimeout(() => { tpaCooldown = false; }, 15000);
-        }
-      }
-    }
-
-    if (temiz.includes('tpa') || temiz.includes('isinlanma istegi')) {
-      if (!temiz.includes('gonderildi') && !temiz.includes('kabul edildi')) {
-        setTimeout(() => komutGonder('/tpaccept'), 1000);
-      }
-    }
-
-    if (temiz.includes('lobiye') || temiz.includes('aktarildiniz') || temiz.includes('yeniden baslatiliyor')) {
-      setTimeout(() => komutGonder('/skyblock'), 4000);
-      setTimeout(() => komutGonder('/home'), 12000);
-    }
-  });
-
-  // Hata Yakalama (Parçacık hatalarını yutar)
-  bot.on('error', (err) => {
-    if (err.name === 'PartialReadError' || err.message?.includes('timed out') || err.message?.includes('packet_world_particles')) return;
-    console.log('[HATA]:', err.message);
-  });
-
-  bot.on('kicked', (reason) => console.log('[BOT]: Kicked:', reason));
-  bot.on('end', () => {
-    console.log('[BOT]: Bağlantı koptu. 15 sn sonra tekrar bağlanıyor...');
     isConnecting = false;
-    tpaCooldown = false;
-    isDropping = false;
-    isExecutingCustom = false;
-    tumZamanlayicilariTemizle();
-    bot = null;
+
+    if (bot) {
+      try { bot.quit(); } catch (e) {}
+      bot = null;
+    }
+
+    console.log('15 saniye sonra tekrar bağlanılacak...');
     setTimeout(botuBaslat, 15000);
+  }
+
+  // UZAKTAN /MSG İLE KONTROL FONKSİYONU
+  function msgKomutIsle(gonderen, mesajIcerik) {
+    const icerik = mesajIcerik.trim().toLowerCase();
+
+    console.log(`>> [UZAKTAN KONTROL] ${gonderen} mesaj attı: ${mesajIcerik}`);
+
+    if (icerik === 'home') {
+      komutGonder('/home');
+      komutGonder(`/msg ${gonderen} AFK konumuna (/home) ışınlanıldı!`);
+    } else if (icerik === 'durum' || icerik === 'ping') {
+      komutGonder(`/msg ${gonderen} Bot aktif! (xBetray_31_AFK)`);
+    } else if (icerik.startsWith('komut ')) {
+      const gonderilecekKomut = mesajIcerik.substring(6);
+      komutGonder(gonderilecekKomut);
+      komutGonder(`/msg ${gonderen} Komut çalıştırıldı: ${gonderilecekKomut}`);
+    }
+  }
+
+  bot.on('whisper', (username, message) => {
+    msgKomutIsle(username, message);
+  });
+
+  bot.on('message', (jsonMsg) => {
+    const mesaj = jsonMsg.toString().trim();
+    if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
+
+    // Özel Mesaj Yakalama
+    if (mesaj.includes('Sana:') || mesaj.includes('-> Sana')) {
+      const parts = mesaj.split(/Sana:/i);
+      if (parts.length > 1) {
+        const mesajIcerik = parts[1].trim();
+        const gonderenPart = parts[0].replace(/\[.*?\]/g, '').trim();
+        const gonderen = gonderenPart.split(' ').pop().replace(/[^a-zA-Z0-9_]/g, '');
+        if (gonderen) msgKomutIsle(gonderen, mesajIcerik);
+      }
+    }
+
+    // Lobiye Düşme Kontrolü
+    if (
+      mesaj.includes('Lobiye aktarıldınız') ||
+      mesaj.includes('Sunucu yeniden başlatılıyor')
+    ) {
+      console.log('>> Lobiye düşüldü! Skyblock ve /home çekiliyor...');
+      komutGonder('/skyblock');
+      safeTimeout(() => komutGonder('/home'), 6000);
+    }
+  });
+
+  let spawnOldu = false;
+
+  bot.on('spawn', () => {
+    if (spawnOldu) return;
+    spawnOldu = true;
+
+    console.log('>> xBetray_31_AFK oyuna bağlandı (Spawn).');
+
+    // 1. Şifre Gir (4. saniye)
+    safeTimeout(() => {
+      komutGonder('/login efe43802'); // <--- ŞİFRE GÜNCELLENDİ
+      console.log('>> [1/3] /login gönderildi.');
+    }, 4000);
+
+    // 2. Skyblock Sunucusuna Geç (10. saniye)
+    safeTimeout(() => {
+      komutGonder('/skyblock');
+      console.log('>> [2/3] Skyblock sunucusuna geçiş yapılıyor...');
+    }, 10000);
+
+    // 3. AFK Konumuna Çek (16. saniye)
+    safeTimeout(() => {
+      komutGonder('/home');
+      console.log('>> [3/3] AFK alanına (/home) çekildi.');
+    }, 16000);
+
+    // AFK Zıplama & Kol Sallama (Her 25 saniyede bir)
+    if (afkInterval) clearInterval(afkInterval);
+    afkInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        bot.setControlState('jump', true);
+        try { bot.swingArm('right'); } catch (e) {}
+
+        setTimeout(() => {
+          if (bot && bot.entity) {
+            bot.setControlState('jump', false);
+          }
+        }, 400);
+      }
+    }, 25000);
+
+    // Periyodik Kontrol (Her 15 dakikada bir)
+    if (kontrolInterval) clearInterval(kontrolInterval);
+    kontrolInterval = setInterval(() => {
+      if (bot && bot.entity) {
+        console.log('>> Periyodik kontrol: /home çekiliyor...');
+        komutGonder('/home');
+      }
+    }, 15 * 60 * 1000);
+  });
+
+  bot.on('kicked', (reason) => {
+    console.log('Bot atıldı! Sebep:', JSON.stringify(reason));
+    sifirlaVeYenidenBaslat();
+  });
+
+  bot.on('end', () => {
+    console.log('Bağlantı koptu (end).');
+    sifirlaVeYenidenBaslat();
+  });
+
+  bot.on('error', (err) => {
+    if (err.name === 'PartialReadError' || err.message?.includes('PartialReadError') || err.message?.includes('timed out')) return;
+    console.log('Hata oluştu:', err.message);
+    sifirlaVeYenidenBaslat();
   });
 }
 
