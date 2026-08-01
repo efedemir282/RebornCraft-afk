@@ -33,7 +33,6 @@ let kontrolInterval = null;
 let isConnecting = false;
 let activeTimeouts = [];
 
-// ZAMANLAYICI TEMİZLEME MEKANİZMASI
 function safeTimeout(fn, delay) {
   const t = setTimeout(() => {
     fn();
@@ -81,7 +80,7 @@ function botuBaslat() {
     }
   }
 
-  // ENVANTERDEKİ TÜM EŞYALARI YERE ATMA FONKSİYONU
+  // ENVANTER BOŞALTMA FONKSİYONU
   async function esyalariBosalt(gonderen) {
     if (!bot || !bot.inventory) return;
 
@@ -96,7 +95,7 @@ function botuBaslat() {
     for (const item of items) {
       try {
         await bot.tossStack(item);
-        await new Promise(r => setTimeout(r, 250)); // Lag engelleme beklemesi
+        await new Promise(r => setTimeout(r, 250));
       } catch (err) {
         console.log('Eşya atma hatası:', err.message);
       }
@@ -105,29 +104,25 @@ function botuBaslat() {
     komutGonder(`/msg ${gonderen} Tüm eşyalar başarıyla yere atıldı!`);
   }
 
-  // MİNYON BESLEME VE ALTIN ELMA (36. SLOT) TIKLAMA FONKSİYONU
+  // MİNYON BESLEME (36. SLOT ALTIN ELMA)
   function minyonBesle() {
     if (!bot || !bot.entity) return;
 
     try {
-      // Menü açıldığında Altın Elma'ya (36. slot) basan dinleyici
       bot.once('windowOpen', (window) => {
         console.log(`>> [MİNYON MENÜSÜ] Menü açıldı: ${window.title || 'Minyon Paneli'}`);
         
         safeTimeout(() => {
           try {
-            // Görseldeki sabit Altın Elma konumu: 36. Slot
             const TARGET_SLOT = 36;
-
             bot.clickWindow(TARGET_SLOT, 0, 0);
-            console.log(`>> [MİNYON] ${TARGET_SLOT}. slottaki Altın Elma'ya basıldı ve besleme yapıldı!`);
+            console.log(`>> [MİNYON] ${TARGET_SLOT}. slottaki Altın Elma'ya basıldı!`);
           } catch (e) {
             console.log('Menü içi tıklama hatası:', e.message);
           }
         }, 1200);
       });
 
-      // Etraftaki Minyon / ArmorStand / NPC varlıklarını tara
       const minyon = bot.nearestEntity(e => {
         const entityName = (e.customName || e.name || '').toLowerCase();
         return (
@@ -142,14 +137,13 @@ function botuBaslat() {
       if (minyon && bot.entity.position.distanceTo(minyon.position) <= 4) {
         bot.activateEntity(minyon);
         bot.swingArm('right');
-        console.log(`>> [MİNYON] Minyona sağ tıklandı, menü bekleniyor...`);
+        console.log(`>> [MİNYON] Minyona sağ tıklandı...`);
       } else {
-        // Varlık doğrudan yakalanamazsa bakılan bloğa sağ tıkla
         bot.swingArm('right');
         const targetBlock = bot.blockAtCursor(4);
         if (targetBlock) {
           bot.activateBlock(targetBlock);
-          console.log('>> [MİNYON] Bakılan bloğa sağ tıklandı, menü bekleniyor...');
+          console.log('>> [MİNYON] Bakılan bloğa sağ tıklandı...');
         }
       }
     } catch (err) {
@@ -173,73 +167,89 @@ function botuBaslat() {
     setTimeout(botuBaslat, 15000);
   }
 
-  // YETKİLİ UZAKTAN KONTROL VE TPA / CHAT / BOŞALT MEKANİZMASI
+  // ÖZEL MESAJ / KOMUT İŞLEME MERKEZİ
   function msgKomutIsle(gonderen, mesajIcerik) {
     if (!gonderen) return;
     const gonderenTemiz = gonderen.replace(/[^a-zA-Z0-9_]/g, '');
+    const gonderenLower = gonderenTemiz.toLowerCase();
 
-    // Sıkı Güvenlik Kontrolü: Sadece xBetray_31 ve xEregos
-    if (!AUTHORIZED_USERS.includes(gonderenTemiz.toLowerCase())) {
-      console.log(`>> [ENGEL] Yetkisiz mesaj reddedildi (${gonderenTemiz}): ${mesajIcerik}`);
+    // Sadece Yetkili Kullanıcılar
+    if (!AUTHORIZED_USERS.includes(gonderenLower)) {
       return;
     }
 
-    const icerik = mesajIcerik.trim().toLowerCase();
-    console.log(`>> [YETKİLİ KONTROL] ${gonderenTemiz} mesaj attı: ${mesajIcerik}`);
+    const rawMessage = mesajIcerik.trim();
+    const icerik = rawMessage.toLowerCase();
+    console.log(`>> [YETKİLİ MESAJ] ${gonderenTemiz}: ${rawMessage}`);
 
-    // ENVANTER BOŞALTMA KOMUTU
-    if (icerik === 'bosalt' || icerik === 'boşalt') {
-      esyalariBosalt(gonderenTemiz);
+    // 1. CHAT'E YAZI YAZDIRMA (!mesaj)
+    if (rawMessage.startsWith('!')) {
+      const gonderilecekMesaj = rawMessage.substring(1).trim();
+      if (gonderilecekMesaj.length > 0) {
+        komutGonder(gonderilecekMesaj);
+        console.log(`>> [GENEL CHAT] YAZILDI: ${gonderilecekMesaj}`);
+      }
     }
-    // TPA KOMUTLARI (/msg tpa VEYA /msg tpa oyuncu)
+    // 2. TPA KOMUTLARI
     else if (icerik === 'tpa') {
       komutGonder(`/tpa ${gonderenTemiz}`);
-      komutGonder(`/msg ${gonderenTemiz} ${gonderenTemiz} hesabına /tpa isteği gönderildi!`);
+      console.log(`>> [TPA] /tpa ${gonderenTemiz} komutu gönderildi!`);
     } else if (icerik.startsWith('tpa ')) {
-      const hedefKullanici = mesajIcerik.substring(4).trim();
+      const hedefKullanici = rawMessage.substring(4).trim();
       komutGonder(`/tpa ${hedefKullanici}`);
-      komutGonder(`/msg ${gonderenTemiz} ${hedefKullanici} hesabına /tpa isteği gönderildi!`);
+      console.log(`>> [TPA] /tpa ${hedefKullanici} komutu gönderildi!`);
     }
-    // GENERAL CHAT'E YAZI YAZDIRMA (/msg yaz Selamlar VEYA /msg chat Naber)
-    else if (icerik.startsWith('yaz ') || icerik.startsWith('chat ') || icerik.startsWith('say ')) {
-      const gonderilecekMesaj = mesajIcerik.substring(mesajIcerik.indexOf(' ') + 1);
-      komutGonder(gonderilecekMesaj);
-      komutGonder(`/msg ${gonderenTemiz} Genel chata yazıldı: ${gonderilecekMesaj}`);
+    // 3. ENVANTER BOŞALTMA KOMUTU
+    else if (icerik === 'bosalt' || icerik === 'boşalt') {
+      esyalariBosalt(gonderenTemiz);
     }
-    // DİĞER KOMUTLAR
+    // 4. DİĞER KOMUTLAR
     else if (icerik === 'home') {
       komutGonder('/home');
-      komutGonder(`/msg ${gonderenTemiz} Minyon alanına (/home) ışınlanıldı!`);
     } else if (icerik === 'besle') {
       minyonBesle();
-      komutGonder(`/msg ${gonderenTemiz} Altın Elma ile minyon besleme tetiklendi!`);
-    } else if (icerik === 'durum' || icerik === 'ping') {
-      komutGonder(`/msg ${gonderenTemiz} Bot aktif! (xBetray_31_AFK - Minyon Besleme)`);
-    } else if (icerik.startsWith('komut ')) {
-      const gonderilecekKomut = mesajIcerik.substring(6);
-      komutGonder(gonderilecekKomut);
-      komutGonder(`/msg ${gonderenTemiz} Özel komut çalıştırıldı: ${gonderilecekKomut}`);
     }
   }
 
+  // Fısıltı dinleyicisi
   bot.on('whisper', (username, message) => {
     msgKomutIsle(username, message);
   });
 
+  // Sunucu Chat satırı dinleyicisi
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
-    if (mesaj) console.log(`[SUNUCU]: ${mesaj}`);
+    if (!mesaj) return;
+    console.log(`[SUNUCU]: ${mesaj}`);
 
-    // Özel Mesaj Yakalama
-    if (mesaj.includes('Sana:') || mesaj.includes('-> Sana')) {
-      const parts = mesaj.split(/Sana:/i);
-      if (parts.length > 1) {
-        const mesajIcerik = parts[1].trim();
-        const gonderenPart = parts[0].replace(/\[.*?\]/g, '').trim();
-        const gonderen = gonderenPart.split(' ').pop().replace(/[^a-zA-Z0-9_]/g, '');
-        if (gonderen) msgKomutIsle(gonderen, mesajIcerik);
-      }
+    const mesajLower = mesaj.toLowerCase();
+
+    // TPA İsteği Geldiğinde Otomatik Kabul
+    if (mesajLower.includes('size ışınlanmak istiyor') || (mesajLower.includes('tpa') && mesajLower.includes('kabul'))) {
+      safeTimeout(() => komutGonder('/tpaccept'), 1000);
+      console.log('>> [TPA] Gelen TPA kabul edildi (/tpaccept).');
     }
+
+    // Yetkili Kullanıcılardan Gelen Mesajları Çözümleme
+    AUTHORIZED_USERS.forEach(user => {
+      if (mesajLower.includes(user)) {
+        // Eğer mesaj '!' ile başlıyorsa (Chat mesajı)
+        const exclamationIndex = mesaj.indexOf('!');
+        if (exclamationIndex !== -1) {
+          const chatMsg = mesaj.substring(exclamationIndex + 1).trim();
+          if (chatMsg) komutGonder(chatMsg);
+        }
+        // Eğer 'tpa' kelimesi geçiyorsa
+        else if (mesajLower.includes('tpa')) {
+          komutGonder(`/tpa ${user}`);
+          console.log(`>> [TPA TETİKLENDİ] /tpa ${user} gönderildi.`);
+        }
+        // Eğer 'bosalt' kelimesi geçiyorsa
+        else if (mesajLower.includes('bosalt') || mesajLower.includes('boşalt')) {
+          esyalariBosalt(user);
+        }
+      }
+    });
 
     // Lobiye Düşme Kontrolü
     if (
@@ -260,25 +270,25 @@ function botuBaslat() {
 
     console.log('>> xBetray_31_AFK oyuna bağlandı (Spawn).');
 
-    // 1. Şifre Gir (4. saniye)
+    // 1. Şifre Gir
     safeTimeout(() => {
       komutGonder('/login efe43802');
       console.log('>> [1/3] /login gönderildi.');
     }, 4000);
 
-    // 2. Skyblock Sunucusuna Geç (10. saniye)
+    // 2. Skyblock Sunucusuna Geç
     safeTimeout(() => {
       komutGonder('/skyblock');
       console.log('>> [2/3] Skyblock sunucusuna geçiş yapılıyor...');
     }, 10000);
 
-    // 3. Minyon Konumuna Çek (16. saniye)
+    // 3. Minyon Konumuna Çek
     safeTimeout(() => {
       komutGonder('/home');
       console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
-    // 4. Periyodik Minyon Besleme Döngüsü (Her 30 Dakikada Bir)
+    // 4. Periyodik Minyon Besleme (30 Dakikada Bir)
     if (afkInterval) clearInterval(afkInterval);
     afkInterval = setInterval(() => {
       if (bot && bot.entity) {
@@ -287,11 +297,10 @@ function botuBaslat() {
       }
     }, 30 * 60 * 1000);
 
-    // 5. Periyodik Konum Kontrolü (Her 15 dakikada bir /home tazeleme)
+    // 5. Periyodik Konum Kontrolü (15 Dakikada Bir)
     if (kontrolInterval) clearInterval(kontrolInterval);
     kontrolInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> Periyodik kontrol: /home çekiliyor...');
         komutGonder('/home');
       }
     }, 15 * 60 * 1000);
