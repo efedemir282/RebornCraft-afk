@@ -80,7 +80,7 @@ function botuBaslat() {
     }
   }
 
-  // ENVANTER BOŞALTMA FONKSİYONU
+  // ENVANTER BOŞALTMA
   async function esyalariBosalt(gonderen) {
     if (!bot || !bot.inventory) return;
 
@@ -104,11 +104,14 @@ function botuBaslat() {
     komutGonder(`/msg ${gonderen} Tüm eşyalar başarıyla yere atıldı!`);
   }
 
-  // MİNYON BESLEME (36. SLOT ALTIN ELMA)
-  function minyonBesle() {
+  // OTOMATİK MİNYON BESLEME FONKSİYONU
+  async function otomatikMinyonBesle() {
     if (!bot || !bot.entity) return;
 
+    console.log('>> [OTOMATİK BESLEME] 30 Dakikalık Minyon Besleme Başladı...');
+
     try {
+      // Menü açıldığında 36. slottaki Altın Elma'ya basan dinleyici
       bot.once('windowOpen', (window) => {
         console.log(`>> [MİNYON MENÜSÜ] Menü açıldı: ${window.title || 'Minyon Paneli'}`);
         
@@ -116,34 +119,46 @@ function botuBaslat() {
           try {
             const TARGET_SLOT = 36;
             bot.clickWindow(TARGET_SLOT, 0, 0);
-            console.log(`>> [MİNYON] ${TARGET_SLOT}. slottaki Altın Elma'ya basıldı!`);
+            console.log(`>> [OTOMATİK BESLEME] ${TARGET_SLOT}. slottaki Altın Elma'ya basıldı! Besleme Tamam.`);
           } catch (e) {
             console.log('Menü içi tıklama hatası:', e.message);
           }
         }, 1200);
       });
 
+      // Etraftaki Minyon Entity'sini bul
       const minyon = bot.nearestEntity(e => {
-        const entityName = (e.customName || e.name || '').toLowerCase();
+        if (!e) return false;
+        const name = (e.customName || e.name || '').toLowerCase();
         return (
-          entityName.includes('cehennem') ||
+          name.includes('cehennem') ||
           e.name === 'armor_stand' ||
           e.name === 'villager' ||
+          e.name === 'player' ||
           e.type === 'object' ||
           e.type === 'mob'
         );
       });
 
-      if (minyon && bot.entity.position.distanceTo(minyon.position) <= 4) {
+      if (minyon && bot.entity.position.distanceTo(minyon.position) <= 4.5) {
+        // Minyonun tam göz hizasına odaklan (Kafasını çevir)
+        await bot.lookAt(minyon.position.offset(0, 1.2, 0), true);
+        await new Promise(r => setTimeout(r, 300));
+
         bot.activateEntity(minyon);
         bot.swingArm('right');
-        console.log(`>> [MİNYON] Minyona sağ tıklandı...`);
+        console.log(`>> [OTOMATİK BESLEME] Minyona odaklanıldı ve sağ tıklandı.`);
       } else {
-        bot.swingArm('right');
+        // Varlık mesafe dışındaysa bakılan bloğa/önde duran yere odaklan
         const targetBlock = bot.blockAtCursor(4);
         if (targetBlock) {
+          await bot.lookAt(targetBlock.position, true);
           bot.activateBlock(targetBlock);
-          console.log('>> [MİNYON] Bakılan bloğa sağ tıklandı...');
+          bot.swingArm('right');
+          console.log('>> [OTOMATİK BESLEME] Bakılan bloğa sağ tıklandı...');
+        } else {
+          bot.swingArm('right');
+          console.log('>> [OTOMATİK BESLEME] Genel sağ tık atıldı...');
         }
       }
     } catch (err) {
@@ -173,79 +188,66 @@ function botuBaslat() {
     const gonderenTemiz = gonderen.replace(/[^a-zA-Z0-9_]/g, '');
     const gonderenLower = gonderenTemiz.toLowerCase();
 
-    // Sadece Yetkili Kullanıcılar
     if (!AUTHORIZED_USERS.includes(gonderenLower)) {
       return;
     }
 
     const rawMessage = mesajIcerik.trim();
     const icerik = rawMessage.toLowerCase();
-    console.log(`>> [YETKİLİ MESAJ] ${gonderenTemiz}: ${rawMessage}`);
 
     // 1. CHAT'E YAZI YAZDIRMA (!mesaj)
     if (rawMessage.startsWith('!')) {
       const gonderilecekMesaj = rawMessage.substring(1).trim();
       if (gonderilecekMesaj.length > 0) {
         komutGonder(gonderilecekMesaj);
-        console.log(`>> [GENEL CHAT] YAZILDI: ${gonderilecekMesaj}`);
       }
     }
     // 2. TPA KOMUTLARI
     else if (icerik === 'tpa') {
       komutGonder(`/tpa ${gonderenTemiz}`);
-      console.log(`>> [TPA] /tpa ${gonderenTemiz} komutu gönderildi!`);
     } else if (icerik.startsWith('tpa ')) {
       const hedefKullanici = rawMessage.substring(4).trim();
       komutGonder(`/tpa ${hedefKullanici}`);
-      console.log(`>> [TPA] /tpa ${hedefKullanici} komutu gönderildi!`);
     }
     // 3. ENVANTER BOŞALTMA KOMUTU
     else if (icerik === 'bosalt' || icerik === 'boşalt') {
       esyalariBosalt(gonderenTemiz);
     }
-    // 4. DİĞER KOMUTLAR
+    // 4. MANUEL BESLEME İSTEĞİ
+    else if (icerik === 'besle') {
+      otomatikMinyonBesle();
+    }
+    // 5. KONUM TAZELEME
     else if (icerik === 'home') {
       komutGonder('/home');
-    } else if (icerik === 'besle') {
-      minyonBesle();
     }
   }
 
-  // Fısıltı dinleyicisi
   bot.on('whisper', (username, message) => {
     msgKomutIsle(username, message);
   });
 
-  // Sunucu Chat satırı dinleyicisi
   bot.on('message', (jsonMsg) => {
     const mesaj = jsonMsg.toString().trim();
     if (!mesaj) return;
-    console.log(`[SUNUCU]: ${mesaj}`);
 
     const mesajLower = mesaj.toLowerCase();
 
-    // TPA İsteği Geldiğinde Otomatik Kabul
+    // Otomatik TPA Kabul
     if (mesajLower.includes('size ışınlanmak istiyor') || (mesajLower.includes('tpa') && mesajLower.includes('kabul'))) {
       safeTimeout(() => komutGonder('/tpaccept'), 1000);
-      console.log('>> [TPA] Gelen TPA kabul edildi (/tpaccept).');
     }
 
-    // Yetkili Kullanıcılardan Gelen Mesajları Çözümleme
+    // Yetkili Mesaj Dinleme
     AUTHORIZED_USERS.forEach(user => {
       if (mesajLower.includes(user)) {
-        // Eğer mesaj '!' ile başlıyorsa (Chat mesajı)
         const exclamationIndex = mesaj.indexOf('!');
         if (exclamationIndex !== -1) {
           const chatMsg = mesaj.substring(exclamationIndex + 1).trim();
           if (chatMsg) komutGonder(chatMsg);
-        }
-        // Eğer 'tpa' kelimesi geçiyorsa
-        else if (mesajLower.includes('tpa')) {
+        } else if (mesajLower.includes('tpa')) {
           komutGonder(`/tpa ${user}`);
-          console.log(`>> [TPA TETİKLENDİ] /tpa ${user} gönderildi.`);
-        }
-        // Eğer 'bosalt' kelimesi geçiyorsa
-        else if (mesajLower.includes('bosalt') || mesajLower.includes('boşalt')) {
+        } else if (mesajLower.includes('bosalt') || mesajLower.includes('boşalt')) {
           esyalariBosalt(user);
         }
       }
@@ -256,7 +258,6 @@ function botuBaslat() {
       mesaj.includes('Lobiye aktarıldınız') ||
       mesaj.includes('Sunucu yeniden başlatılıyor')
     ) {
-      console.log('>> Lobiye düşüldü! Skyblock ve /home çekiliyor...');
       komutGonder('/skyblock');
       safeTimeout(() => komutGonder('/home'), 6000);
     }
@@ -268,32 +269,32 @@ function botuBaslat() {
     if (spawnOldu) return;
     spawnOldu = true;
 
-    console.log('>> xBetray_31_AFK oyuna bağlandı (Spawn).');
+    console.log('>> xBetray_31_AFK oyuna bağlandı.');
 
     // 1. Şifre Gir
     safeTimeout(() => {
       komutGonder('/login efe43802');
-      console.log('>> [1/3] /login gönderildi.');
     }, 4000);
 
     // 2. Skyblock Sunucusuna Geç
     safeTimeout(() => {
       komutGonder('/skyblock');
-      console.log('>> [2/3] Skyblock sunucusuna geçiş yapılıyor...');
     }, 10000);
 
     // 3. Minyon Konumuna Çek
     safeTimeout(() => {
       komutGonder('/home');
-      console.log('>> [3/3] Minyon alanına (/home) çekildi.');
     }, 16000);
 
-    // 4. Periyodik Minyon Besleme (30 Dakikada Bir)
+    // 4. İLK BESLEME VE TAM OTOMATİK 30 DAKİKA DÖNGÜSÜ
+    safeTimeout(() => {
+      otomatikMinyonBesle(); // Oyuna girip /home çekince ilk beslemeyi yapar
+    }, 20000);
+
     if (afkInterval) clearInterval(afkInterval);
     afkInterval = setInterval(() => {
       if (bot && bot.entity) {
-        console.log('>> [30 DK DÖNGÜSÜ] Minyon besleme tetikleniyor...');
-        minyonBesle();
+        otomatikMinyonBesle(); // Her 30 dakikada bir otomatik besler
       }
     }, 30 * 60 * 1000);
 
